@@ -6,7 +6,7 @@ class SongState(TypedDict):
     artist_name: Optional[str]
     artist_background: Optional[str]
     artist_style: Optional[str]
-    musical_direction: Optional[str]
+    musical_direction: Optional[dict]
     lyrics: Optional[str]
     cleaned_lyrics: Optional[str]
     audio_path: Optional[str]

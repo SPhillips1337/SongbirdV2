@@ -22,18 +22,15 @@ class SongbirdWorkflow:
         # Define nodes
         workflow.add_node("create_artist", self.node_create_artist)
         workflow.add_node("create_music_direction", self.node_create_music)
-        workflow.add_node("research_lyrics", self.lyrics_agent.research_node)
-        workflow.add_node("write_lyrics", self.lyrics_agent.writer_node)
-        workflow.add_node("refine_lyrics", self.lyrics_agent.refiner_node)
+        # Combined lyrics generation node
+        workflow.add_node("write_lyrics", self.lyrics_agent.write_lyrics_node)
         workflow.add_node("generate_audio", self.node_generate_audio)
         
         # Define edges
         workflow.set_entry_point("create_artist")
         workflow.add_edge("create_artist", "create_music_direction")
-        workflow.add_edge("create_music_direction", "research_lyrics")
-        workflow.add_edge("research_lyrics", "write_lyrics")
-        workflow.add_edge("write_lyrics", "refine_lyrics")
-        workflow.add_edge("refine_lyrics", "generate_audio")
+        workflow.add_edge("create_music_direction", "write_lyrics")
+        workflow.add_edge("write_lyrics", "generate_audio")
         workflow.add_edge("generate_audio", END)
         
         self.app = workflow.compile()
@@ -51,14 +48,33 @@ class SongbirdWorkflow:
         return state
 
     def node_generate_audio(self, state: SongState):
-        # We assume musical_direction might be a string or we can extract info if needed
-        # For the prototype, we pass the direction as 'tags'
+        music_dir = state["musical_direction"]
+        # Handle dict or fallback string
+        if isinstance(music_dir, dict):
+            tags = music_dir.get("tags", "")
+            bpm = music_dir.get("bpm", 120)
+            keyscale = music_dir.get("keyscale", "C major")
+        else:
+            tags = str(music_dir)
+            bpm = 120
+            keyscale = "C major"
+
         result = self.comfy.submit_prompt(
             state["cleaned_lyrics"], 
-            tags=state["musical_direction"],
+            tags=tags,
+            bpm=bpm,
+            keyscale=keyscale,
             filename_prefix=f"{state['artist_name']}_song"
         )
-        state["audio_path"] = result.get("prompt_id") if result else "error"
+
+        if result and "prompt_id" in result:
+            prompt_id = result["prompt_id"]
+            print(f"Audio generation started. Prompt ID: {prompt_id}")
+            audio_path = self.comfy.wait_and_download_output(prompt_id)
+            state["audio_path"] = audio_path
+        else:
+            state["audio_path"] = "error"
+
         return state
 
     def run(self, genre, user_direction):
@@ -81,4 +97,6 @@ if __name__ == "__main__":
     flow = SongbirdWorkflow()
     final_state = flow.run("POP", "A catchy upbeat pop song in the style of Black Pink about freedom with powerful female vocals and a live drummer.")
     print("Workflow Complete!")
-    print(f"Lyrics Preview: {final_state['cleaned_lyrics'][:100]}...")
+    if final_state['cleaned_lyrics']:
+        print(f"Lyrics Preview: {final_state['cleaned_lyrics'][:100]}...")
+    print(f"Audio Path: {final_state['audio_path']}")
