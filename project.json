@@ -1,0 +1,63 @@
+{
+    "$schema": "https://raw.githubusercontent.com/SPhillips1337/Project-JSON-Schema/main/schema/project.schema.json",
+    "schemaVersion": "1.0.0",
+    "name": "Songbird",
+    "slug": "songbird",
+    "summary": "Local agentic workflow for AI-driven song creation, V2 is migrated from the N8N V1 original version to LangGraph to allow for AI manipluation as code.",
+    "version": "2.0",
+    "tech_stack": {
+        "language": "Python",
+        "orchestrator": "LangGraph",
+        "llm_engine": "Ollama",
+        "audio_generation": "ComfyUI (ACE Step)",
+        "research": "Perplexity API",
+        "rag": "LightRAG"
+    },
+    "primary_features": [
+        "Multi-agent orchestration (Artist, Music, Lyrics)",
+        "Fictional artist persona generation",
+        "Musical direction synthesis (BPM, mood, instruments)",
+        "Multi-stage lyric generation (Research, Draft, Refine)",
+        "ACE-formatted lyric output",
+        "Automated audio generation via ComfyUI"
+    ],
+    "architecture": {
+        "overview": "A coordinated graph of specialized agents built on LangGraph.",
+        "components": {
+            "ArtistAgent": {
+                "description": "Generates personas and stylistic inspirations.",
+                "files": [
+                    "agents/artist.py"
+                ]
+            },
+            "MusicAgent": {
+                "description": "Determines musical direction parameters.",
+                "files": [
+                    "agents/music.py"
+                ]
+            },
+            "LyricsAgent": {
+                "description": "Multi-stage pipeline for lyric research and writing.",
+                "files": [
+                    "agents/lyrics.py"
+                ]
+            },
+            "ComfyClient": {
+                "description": "Interface for submitting prompts to ComfyUI.",
+                "files": [
+                    "tools/comfy.py"
+                ]
+            }
+        }
+    },
+    "required_env": [
+        "PERPLEXITY_API_KEY",
+        "COMFYUI_URL",
+        "LIGHTRAG_URL"
+    ],
+    "how_to_run_locally": {
+        "setup": "Create virtual environment and install dependencies from README.md",
+        "execution": "Run `python app.py` with desired genre and direction"
+    },
+    "lastUpdated": "2026-02-06T11:40:40Z"
+}

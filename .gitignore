@@ -1,0 +1,26 @@
+# Environment variables
+.env
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Output and media
+output/
+audio/
+*.mp3
+*.wav
+
+# Logs
+*.log
+
+# Project specific
+.gemini/
+.agent/
+brain/
