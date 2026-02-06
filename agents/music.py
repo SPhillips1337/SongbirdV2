@@ -1,5 +1,7 @@
 import os
 import requests
+import json
+from config import MUSIC_PROMPTS
 
 
 class MusicAgent:
@@ -8,15 +10,18 @@ class MusicAgent:
         self.model = os.getenv("LYRIC_MODEL", "qwen3:14b")
 
     def generate_direction(self, genre, user_direction):
-        # Switch logic based on genre as seen in n8n
-        prompts = {
-            "RAP": "You are an expert RAP music producer. Generate a detailed musical direction for a hard-hitting RAP track...",
-            "POP": "You are an expert POP music producer. Generate a detailed musical direction for a catchy POP track...",
-            "JAZZ": "You are an expert JAZZ music producer. Generate a detailed musical direction for a smooth JAZZ track..."
-        }
+        system_prompt = MUSIC_PROMPTS.get(genre.upper(), MUSIC_PROMPTS.get("POP", "Default POP Prompt"))
         
-        system_prompt = prompts.get(genre.upper(), prompts["POP"])
-        user_prompt = f"User Direction: {user_direction}\nGenre: {genre}\n\nReturn a JSON-like object with 'tags' (a descriptive styling paragraph), 'bpm' (numeric), and 'keyscale' (e.g. 'C major')."
+        user_prompt = (
+            f"User Direction: {user_direction}\n"
+            f"Genre: {genre}\n\n"
+            "Task: Create a musical direction for this song.\n"
+            "Output Format: Strict JSON object with no markdown formatting.\n"
+            "Required Fields:\n"
+            "- 'tags': A string of evocative, descriptive tags suitable for music generation (e.g., 'ethereal vocals, thumping bass, neon atmosphere').\n"
+            "- 'bpm': An integer representing the tempo.\n"
+            "- 'keyscale': A string representing the key (e.g., 'C major', 'F# minor')."
+        )
 
         try:
             response = requests.post(
@@ -24,12 +29,30 @@ class MusicAgent:
                 json={
                     "model": self.model, 
                     "prompt": f"{system_prompt}\n\n{user_prompt}", 
-                    "stream": False
+                    "stream": False,
+                    "format": "json"
                 },
                 timeout=60
             )
             response.raise_for_status()
-            return response.json().get("response", "").strip()
-        except Exception as e:
-            print(f"Error generating musical direction: {e}")
-            return "upbeat, 120 BPM, emotional"
+            response_text = response.json().get("response", "").strip()
+
+            # Parse JSON
+            direction = json.loads(response_text)
+            # Ensure all fields exist, provide defaults if missing
+            return {
+                "tags": direction.get("tags", "upbeat, emotional, popular music"),
+                "bpm": int(direction.get("bpm", 120)),
+                "keyscale": direction.get("keyscale", "C major")
+            }
+        except (json.JSONDecodeError, ValueError, requests.RequestException) as e:
+            # Catch both parsing errors and request errors here
+            print(f"Error generating or parsing musical direction: {e}")
+            if 'response_text' in locals():
+                print(f"Raw Response: {response_text}")
+
+            return {
+                "tags": "upbeat, emotional, popular music",
+                "bpm": 120,
+                "keyscale": "C major"
+            }

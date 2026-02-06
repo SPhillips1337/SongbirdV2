@@ -9,7 +9,7 @@ class ComfyClient:
         self.output_dir = "output"
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=120, filename_prefix="songbird"):
+    def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird"):
         # ACE Step 1.5 Workflow structure from audio_ace_step_1_5_checkpoint.json
         prompt = {
             "3": {
@@ -108,4 +108,70 @@ class ComfyClient:
             return response.json()
         except Exception as e:
             print(f"Error fetching ComfyUI history: {e}")
+            return None
+
+    def wait_and_download_output(self, prompt_id, timeout=600):
+        """Polls history and downloads the generated file."""
+        print(f"Waiting for generation (Prompt ID: {prompt_id})...")
+        start_time = time.time()
+        while True:
+            history = self.get_history(prompt_id)
+            if history and prompt_id in history:
+                break
+
+            if time.time() - start_time > timeout:
+                print(f"Timeout waiting for generation (Prompt ID: {prompt_id})")
+                return None
+
+            time.sleep(2)
+
+        # Extract filename
+        outputs = history[prompt_id].get("outputs", {})
+        # Find the output from SaveAudioMP3 node (ID 104)
+        node_output = outputs.get("104", {})
+
+        files = []
+        if isinstance(node_output, list):
+            files.extend(node_output)
+        elif isinstance(node_output, dict):
+            for key, val in node_output.items():
+                if isinstance(val, list):
+                    files.extend(val)
+
+        if not files:
+            print("No output files found in history.")
+            return None
+
+        # Download the first file
+        file_info = files[0]
+        if not file_info or not isinstance(file_info, dict):
+            print("Invalid file info found in history.")
+            return None
+
+        filename = file_info.get("filename")
+        subfolder = file_info.get("subfolder", "")
+        folder_type = file_info.get("type", "output")
+
+        return self.download_file(filename, subfolder, folder_type)
+
+    def download_file(self, filename, subfolder, folder_type):
+        params = {
+            "filename": filename,
+            "subfolder": subfolder,
+            "type": folder_type
+        }
+        try:
+            response = requests.get(f"{self.url}/view", params=params)
+            response.raise_for_status()
+
+            # Save to local output dir
+            local_path = os.path.join(self.output_dir, filename)
+
+            with open(local_path, "wb") as f:
+                f.write(response.content)
+
+            print(f"Saved generated audio to {local_path}")
+            return local_path
+        except Exception as e:
+            print(f"Error downloading file: {e}")
             return None

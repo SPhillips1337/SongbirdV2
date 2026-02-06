@@ -1,5 +1,6 @@
 import os
 import requests
+from config import ARTIST_STYLES
 
 
 class ArtistAgent:
@@ -32,10 +33,4 @@ Important: Do not include any additional text, explanations, or conversational p
             return f"A mysterious singer in the {genre} scene."
 
     def select_artist_style(self, genre):
-        # Simplified logic based on n8n 'Select Artist' node
-        styles = {
-            "RAP": "Eminem",
-            "POP": "Adele",
-            "JAZZ": "Norah Jones"
-        }
-        return styles.get(genre.upper(), "Adele")
+        return ARTIST_STYLES.get(genre.upper(), "Adele")

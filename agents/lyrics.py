@@ -12,33 +12,39 @@ class LyricsAgent:
         self.rag = RAGTool()
         self.perplexity = PerplexityClient()
 
-    def research_node(self, state):
-        """Node: Research themes and artist style."""
+    def write_lyrics_node(self, state):
+        """Node: Research and Generate ACE-formatted lyrics."""
+        
+        # 1. Research (Combined)
         query = f"Songwriting themes for {state['genre']} music in the style of {state['artist_style']}"
-        
-        # 1. Search Perplexity
-        search_results = self.perplexity.search(query)
-        
-        # 2. Query LightRAG
-        rag_results = self.rag.query_lightrag(f"Lyrics by {state['artist_style']}")
-        
-        state["research_notes"] = f"Perplexity: {search_results}\n\nLightRAG: {rag_results}"
-        return state
+        try:
+            search_results = self.perplexity.search(query)
+        except Exception as e:
+            print(f"Perplexity search failed: {e}")
+            search_results = "No search results."
 
-    def writer_node(self, state):
-        """Node: Generate ACE-formatted lyrics."""
+        try:
+            rag_results = self.rag.query_lightrag(f"Lyrics by {state['artist_style']}")
+        except Exception as e:
+            print(f"RAG query failed: {e}")
+            rag_results = "No RAG results."
+
+        research_notes = f"Perplexity: {search_results}\n\nLightRAG: {rag_results}"
+        state["research_notes"] = research_notes
+
+        # 2. Write
         prompt = f"""Role: Expert AI Songwriter
-Goal: Produce unique, high-quality lyrics for a {state['genre']} track.
+Goal: Produce unique, high-quality, raw, and 'street' lyrics for a {state['genre']} track.
 Artist: {state['artist_name']}
 Background: {state['artist_background']}
 Style: {state['artist_style']}
-Musical Direction: {state['musical_direction']}
-Research Notes: {state['research_notes']}
+Musical Direction: {state.get('musical_direction', {})}
+Research Notes: {research_notes}
 
 Output Requirements:
-- Start with tags like [intro], [verse], [chorus], [outro].
-- FORMAT FOR ACE TEXT-TO-AUDIO (Comfy UI).
-- No explanations. Only lyrics.
+- STRUCTURE: You MUST use markers like [Intro], [Verse], [Chorus], [Bridge], [Outro].
+- CONTENT: Make the lyrics raw, emotional, and authentic to the genre. Avoid cheesy rhymes.
+- FORMAT: STRICTLY lyrics only. No conversational text, no explanations.
 
 Begin creative workflow immediately."""
 
@@ -49,9 +55,17 @@ Begin creative workflow immediately."""
                 timeout=90
             )
             response.raise_for_status()
-            state["lyrics"] = response.json().get("response", "").strip()
+            lyrics = response.json().get("response", "").strip()
+            state["lyrics"] = lyrics
+
+            # Apply cleaning immediately
+            state["cleaned_lyrics"] = self.clean_lyrics(lyrics)
+
         except Exception as e:
-            state["lyrics"] = "[intro]\nError generating lyrics."
+            print(f"Error generating lyrics: {e}")
+            state["lyrics"] = "[Intro]\nError generating lyrics."
+            state["cleaned_lyrics"] = "[Intro]\nError generating lyrics."
+
         return state
 
     def clean_lyrics(self, lyrics):
@@ -64,25 +78,3 @@ Begin creative workflow immediately."""
             if cleaned:
                 cleaned_lines.append(cleaned)
         return '\n'.join(cleaned_lines)
-
-    def refiner_node(self, state):
-        """Node: Final polish and cleaning."""
-        raw_lyrics = state["lyrics"]
-        # Basic regex cleanup as per n8n
-        cleaned = self.clean_lyrics(raw_lyrics)
-        
-        # Secondary LLM refine (Raw/Rebellious factor from n8n RAG AI Agent2)
-        refine_prompt = f"Review these lyrics and make them more raw, improve them, make them more street. Only return the lyrics:\n\n{cleaned}"
-        
-        try:
-            response = requests.post(
-                f"{self.base_url}/api/generate",
-                json={"model": self.model, "prompt": refine_prompt, "stream": False},
-                timeout=60
-            )
-            response.raise_for_status()
-            state["cleaned_lyrics"] = response.json().get("response", "").strip()
-        except:
-            state["cleaned_lyrics"] = cleaned
-            
-        return state
