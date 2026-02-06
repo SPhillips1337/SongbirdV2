@@ -1,3 +1,5 @@
+import os
+import json
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 
@@ -91,7 +93,39 @@ class SongbirdWorkflow:
             "research_notes": None,
             "history": []
         }
-        return self.app.invoke(initial_state)
+        final_state = self.app.invoke(initial_state)
+        self.save_metadata(final_state)
+        return final_state
+
+    def save_metadata(self, state: SongState):
+        """Saves song details to a text file in the output directory."""
+        if not state.get("audio_path") or state["audio_path"] == "error":
+            print("Skipping metadata save: No audio generated.")
+            return
+
+        # Derive metadata path from audio path (e.g., song.mp3 -> song_metadata.txt)
+        base_path = os.path.splitext(state["audio_path"])[0]
+        meta_path = f"{base_path}_metadata.txt"
+
+        content = [
+            f"Artist: {state['artist_name']}",
+            f"Background: {state['artist_background']}",
+            f"Genre: {state['genre']}",
+            f"Style (Reference): {state['artist_style']}",
+            "\n--- Musical Direction ---",
+            json.dumps(state['musical_direction'], indent=2) if isinstance(state['musical_direction'], dict) else str(state['musical_direction']),
+            "\n--- Lyrics ---",
+            state.get('cleaned_lyrics', state.get('lyrics', 'No lyrics generated.')),
+            "\n--- Research Notes ---",
+            state.get('research_notes', 'No research notes.')
+        ]
+
+        try:
+            with open(meta_path, "w") as f:
+                f.write("\n".join(content))
+            print(f"Saved song metadata to {meta_path}")
+        except Exception as e:
+            print(f"Error saving metadata: {e}")
 
 if __name__ == "__main__":
     flow = SongbirdWorkflow()
