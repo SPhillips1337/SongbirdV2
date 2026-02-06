@@ -144,6 +144,10 @@ class ComfyClient:
 
         # Download the first file
         file_info = files[0]
+        if not file_info or not isinstance(file_info, dict):
+            print("Invalid file info found in history.")
+            return None
+
         filename = file_info.get("filename")
         subfolder = file_info.get("subfolder", "")
         folder_type = file_info.get("type", "output")

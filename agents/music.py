@@ -10,7 +10,7 @@ class MusicAgent:
         self.model = os.getenv("LYRIC_MODEL", "qwen3:14b")
 
     def generate_direction(self, genre, user_direction):
-        system_prompt = MUSIC_PROMPTS.get(genre.upper(), MUSIC_PROMPTS["POP"])
+        system_prompt = MUSIC_PROMPTS.get(genre.upper(), MUSIC_PROMPTS.get("POP", "Default POP Prompt"))
         
         user_prompt = (
             f"User Direction: {user_direction}\n"
@@ -38,20 +38,19 @@ class MusicAgent:
             response_text = response.json().get("response", "").strip()
 
             # Parse JSON
-            try:
-                direction = json.loads(response_text)
-                # Ensure all fields exist, provide defaults if missing
-                return {
-                    "tags": direction.get("tags", "upbeat, emotional, popular music"),
-                    "bpm": int(direction.get("bpm", 120)),
-                    "keyscale": direction.get("keyscale", "C major")
-                }
-            except (json.JSONDecodeError, ValueError) as e:
-                print(f"JSON Parse Error. Response: {response_text}. Error: {e}")
-                raise ValueError("Invalid JSON output")
+            direction = json.loads(response_text)
+            # Ensure all fields exist, provide defaults if missing
+            return {
+                "tags": direction.get("tags", "upbeat, emotional, popular music"),
+                "bpm": int(direction.get("bpm", 120)),
+                "keyscale": direction.get("keyscale", "C major")
+            }
+        except (json.JSONDecodeError, ValueError, requests.RequestException) as e:
+            # Catch both parsing errors and request errors here
+            print(f"Error generating or parsing musical direction: {e}")
+            if 'response_text' in locals():
+                print(f"Raw Response: {response_text}")
 
-        except Exception as e:
-            print(f"Error generating musical direction: {e}")
             return {
                 "tags": "upbeat, emotional, popular music",
                 "bpm": 120,

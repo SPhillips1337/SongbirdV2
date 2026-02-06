@@ -97,6 +97,10 @@ if __name__ == "__main__":
     flow = SongbirdWorkflow()
     final_state = flow.run("POP", "A catchy upbeat pop song in the style of Black Pink about freedom with powerful female vocals and a live drummer.")
     print("Workflow Complete!")
-    if final_state['cleaned_lyrics']:
+    if final_state.get('cleaned_lyrics'):
         print(f"Lyrics Preview: {final_state['cleaned_lyrics'][:100]}...")
-    print(f"Audio Path: {final_state['audio_path']}")
+
+    if final_state.get('audio_path'):
+        print(f"Audio Path: {final_state['audio_path']}")
+    else:
+        print("Audio Path: None")
