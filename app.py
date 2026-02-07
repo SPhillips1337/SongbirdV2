@@ -1,5 +1,7 @@
 import os
 import json
+import argparse
+import logging
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 
@@ -12,11 +14,11 @@ from agents.lyrics import LyricsAgent
 from tools.comfy import ComfyClient
 
 class SongbirdWorkflow:
-    def __init__(self):
+    def __init__(self, output_dir="output"):
         self.artist_agent = ArtistAgent()
         self.music_agent = MusicAgent()
         self.lyrics_agent = LyricsAgent()
-        self.comfy = ComfyClient()
+        self.comfy = ComfyClient(output_dir=output_dir)
         
         # Build the graph
         workflow = StateGraph(SongState)
@@ -71,7 +73,7 @@ class SongbirdWorkflow:
 
         if result and "prompt_id" in result:
             prompt_id = result["prompt_id"]
-            print(f"Audio generation started. Prompt ID: {prompt_id}")
+            logging.info(f"Audio generation started. Prompt ID: {prompt_id}")
             audio_path = self.comfy.wait_and_download_output(prompt_id)
             state["audio_path"] = audio_path
         else:
@@ -100,7 +102,7 @@ class SongbirdWorkflow:
     def save_metadata(self, state: SongState):
         """Saves song details to a text file in the output directory."""
         if not state.get("audio_path") or state["audio_path"] == "error":
-            print("Skipping metadata save: No audio generated.")
+            logging.info("Skipping metadata save: No audio generated.")
             return
 
         # Derive metadata path from audio path (e.g., song.mp3 -> song_metadata.txt)
@@ -123,13 +125,28 @@ class SongbirdWorkflow:
         try:
             with open(meta_path, "w") as f:
                 f.write("\n".join(content))
-            print(f"Saved song metadata to {meta_path}")
+            logging.info(f"Saved song metadata to {meta_path}")
         except Exception as e:
-            print(f"Error saving metadata: {e}")
+            logging.error(f"Error saving metadata: {e}")
 
-if __name__ == "__main__":
-    flow = SongbirdWorkflow()
-    final_state = flow.run("POP", "A catchy upbeat pop song in the style of Black Pink about freedom with powerful female vocals and a live drummer.")
+def main():
+    parser = argparse.ArgumentParser(description="Songbird: AI Song Generation Agent")
+    parser.add_argument("--genre", type=str, default="POP", help="Song genre (default: POP)")
+    parser.add_argument("--direction", type=str, default="A catchy upbeat pop song in the style of Black Pink about freedom with powerful female vocals and a live drummer.", help="Musical direction for the song")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--output", type=str, default="output", help="Output directory (default: output)")
+
+    args = parser.parse_args()
+
+    # Configure logging
+    log_level = logging.INFO if args.verbose else logging.WARNING
+    logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    flow = SongbirdWorkflow(output_dir=args.output)
+
+    # Use the parsed arguments
+    final_state = flow.run(args.genre, args.direction)
+
     print("Workflow Complete!")
     if final_state.get('cleaned_lyrics'):
         print(f"Lyrics Preview: {final_state['cleaned_lyrics'][:100]}...")
@@ -138,3 +155,6 @@ if __name__ == "__main__":
         print(f"Audio Path: {final_state['audio_path']}")
     else:
         print("Audio Path: None")
+
+if __name__ == "__main__":
+    main()

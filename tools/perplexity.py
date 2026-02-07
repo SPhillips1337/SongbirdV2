@@ -1,5 +1,6 @@
 import requests
 import os
+import logging
 
 
 class PerplexityClient:
@@ -30,5 +31,5 @@ class PerplexityClient:
             response.raise_for_status()
             return response.json()["choices"][0]["message"]["content"]
         except Exception as e:
-            print(f"Error querying Perplexity: {e}")
+            logging.error(f"Error querying Perplexity: {e}")
             return f"Research error: {e}"

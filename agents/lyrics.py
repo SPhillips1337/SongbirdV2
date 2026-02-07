@@ -1,6 +1,7 @@
 import os
 import requests
 import re
+import logging
 from tools.rag import RAGTool
 from tools.perplexity import PerplexityClient
 
@@ -20,13 +21,13 @@ class LyricsAgent:
         try:
             search_results = self.perplexity.search(query)
         except Exception as e:
-            print(f"Perplexity search failed: {e}")
+            logging.error(f"Perplexity search failed: {e}")
             search_results = "No search results."
 
         try:
             rag_results = self.rag.query_lightrag(f"Lyrics by {state['artist_style']}")
         except Exception as e:
-            print(f"RAG query failed: {e}")
+            logging.error(f"RAG query failed: {e}")
             rag_results = "No RAG results."
 
         research_notes = f"Perplexity: {search_results}\n\nLightRAG: {rag_results}"
@@ -62,7 +63,7 @@ Begin creative workflow immediately."""
             state["cleaned_lyrics"] = self.clean_lyrics(lyrics)
 
         except Exception as e:
-            print(f"Error generating lyrics: {e}")
+            logging.error(f"Error generating lyrics: {e}")
             state["lyrics"] = "[Intro]\nError generating lyrics."
             state["cleaned_lyrics"] = "[Intro]\nError generating lyrics."
 
