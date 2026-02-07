@@ -11,7 +11,7 @@ class ComfyClient:
         os.makedirs(self.output_dir, exist_ok=True)
 
     def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird"):
-        # ACE Step 1.5 Workflow structure from audio_ace_step_1_5_checkpoint.json
+        # ACE Step 1.5 Workflow structure
         prompt = {
             "3": {
                 "inputs": {
@@ -128,7 +128,6 @@ class ComfyClient:
 
         # Extract filename
         outputs = history[prompt_id].get("outputs", {})
-        # Find the output from SaveAudioMP3 node (ID 104)
         node_output = outputs.get("104", {})
 
         files = []
@@ -143,7 +142,6 @@ class ComfyClient:
             logging.error("No output files found in history.")
             return None
 
-        # Download the first file
         file_info = files[0]
         if not file_info or not isinstance(file_info, dict):
             logging.error("Invalid file info found in history.")
@@ -156,6 +154,9 @@ class ComfyClient:
         return self.download_file(filename, subfolder, folder_type)
 
     def download_file(self, filename, subfolder, folder_type):
+        # SECURITY FIX: Prevent path traversal (CWE-22)
+        safe_filename = os.path.basename(filename)
+        
         params = {
             "filename": filename,
             "subfolder": subfolder,
@@ -165,8 +166,7 @@ class ComfyClient:
             response = requests.get(f"{self.url}/view", params=params)
             response.raise_for_status()
 
-            # Save to local output dir
-            local_path = os.path.join(self.output_dir, filename)
+            local_path = os.path.join(self.output_dir, safe_filename)
 
             with open(local_path, "wb") as f:
                 f.write(response.content)
