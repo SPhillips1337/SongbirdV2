@@ -3,13 +3,10 @@ import json
 import argparse
 import logging
 from dotenv import load_dotenv
-
-# Configure basic logging early to catch import-time logs
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from langgraph.graph import StateGraph, END
 
 load_dotenv()
 
-from langgraph.graph import StateGraph, END
 from state import SongState
 from agents.artist import ArtistAgent
 from agents.music import MusicAgent
@@ -29,6 +26,7 @@ class SongbirdWorkflow:
         # Define nodes
         workflow.add_node("create_artist", self.node_create_artist)
         workflow.add_node("create_music_direction", self.node_create_music)
+        # Combined lyrics generation node
         workflow.add_node("write_lyrics", self.lyrics_agent.write_lyrics_node)
         workflow.add_node("generate_audio", self.node_generate_audio)
         
@@ -55,6 +53,7 @@ class SongbirdWorkflow:
 
     def node_generate_audio(self, state: SongState):
         music_dir = state["musical_direction"]
+        # Handle dict or fallback string
         if isinstance(music_dir, dict):
             tags = music_dir.get("tags", "")
             bpm = music_dir.get("bpm", 120)
@@ -106,6 +105,7 @@ class SongbirdWorkflow:
             logging.info("Skipping metadata save: No audio generated.")
             return
 
+        # Derive metadata path from audio path (e.g., song.mp3 -> song_metadata.txt)
         base_path = os.path.splitext(state["audio_path"])[0]
         meta_path = f"{base_path}_metadata.txt"
 
@@ -138,11 +138,13 @@ def main():
 
     args = parser.parse_args()
 
-    # Re-configure logging based on user preference
+    # Configure logging
     log_level = logging.INFO if args.verbose else logging.WARNING
-    logging.getLogger().setLevel(log_level)
+    logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(message)s')
 
     flow = SongbirdWorkflow(output_dir=args.output)
+
+    # Use the parsed arguments
     final_state = flow.run(args.genre, args.direction)
 
     print("Workflow Complete!")
