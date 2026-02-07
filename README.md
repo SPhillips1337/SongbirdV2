@@ -25,7 +25,11 @@ songbird/
    ```
 3. **Run the Workflow**:
    ```bash
+   # Default run (POP)
    python app.py
+
+   # Custom genre and direction
+   python app.py --genre JAZZ --direction "A smooth noir jazz track about rainy city streets" --verbose
    ```
 
-Refer to [USAGE.md](USAGE.md) for detailed setup instructions and [AGENTS.md](AGENTS.md) for technical details on the agent pipeline.
+Refer to [USAGE.md](USAGE.md) for detailed CLI options and setup instructions.

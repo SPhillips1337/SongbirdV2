@@ -47,5 +47,4 @@ class RAGTool:
 
     def query_pgvector(self, query):
         # Placeholder for PGVector logic using psycopg2 or langchain
-        # In a full implementation, we'd use local embeddings (ollama) to vector search
         return "Vector results for: " + query

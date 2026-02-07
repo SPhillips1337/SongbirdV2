@@ -1,0 +1,12 @@
+usage: app.py [-h] [--genre GENRE] [--direction DIRECTION] [--verbose]
+              [--output OUTPUT]
+
+Songbird: AI Song Generation Agent
+
+options:
+  -h, --help            show this help message and exit
+  --genre GENRE         Song genre (default: POP)
+  --direction DIRECTION
+                        Musical direction for the song
+  --verbose             Enable verbose logging
+  --output OUTPUT       Output directory (default: output)

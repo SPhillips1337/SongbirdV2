@@ -36,18 +36,31 @@ LIGHTRAG_URL=http://192.168.1.y:9621
 
 ## Running the Workflow
 
-The `app.py` script contains a main execution block. You can customize the input genre and user direction at the bottom of the file:
+`app.py` is a command-line tool. You can customize the song generation via arguments:
 
-```python
-if __name__ == "__main__":
-    flow = SongbirdWorkflow()
-    final_state = flow.run("POP", "A catchy upbeat anthem about freedom.")
-```
+### CLI Arguments
 
-Run the script:
+| Argument | Description | Default |
+| :--- | :--- | :--- |
+| `--genre` | Top-level genre (POP, RAP, JAZZ, etc.) | `POP` |
+| `--direction` | Detailed musical/thematic direction | (Catchy POP prompt) |
+| `--output` | Directory to save generated assets | `output` |
+| `--verbose` | Enable INFO level logging (otherwise WARNING) | `False` |
+
+### Examples
+
+**Basic Run:**
 ```bash
-python app.py
+python app.py --genre RAP --direction "A hard-hitting boom bap track about city life"
 ```
+
+**Verbose Output to Custom Directory:**
+```bash
+python app.py --verbose --output ./my_songs --genre JAZZ
+```
+
+## Logging
+The system uses the standard Python `logging` module. Use the `--verbose` flag to see real-time progress of research, generation, and file downloads.
 
 ## Troubleshooting
 - **API Errors**: Ensure all local IP addresses in `.env` are reachable.
