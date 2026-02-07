@@ -2,11 +2,12 @@ import requests
 import json
 import time
 import os
+import logging
 
 class ComfyClient:
-    def __init__(self, url=None):
+    def __init__(self, url=None, output_dir="output"):
         self.url = url or os.getenv("COMFYUI_URL", "http://localhost:8188")
-        self.output_dir = "output"
+        self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
 
     def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird"):
@@ -96,9 +97,9 @@ class ComfyClient:
             return response.json()
         except Exception as e:
             if "WRONG_VERSION_NUMBER" in str(e):
-                print(f"Error submitting to ComfyUI: SSL Error (Wrong Version). TIP: You are likely using 'https://' for a server that only supports 'http://'. Please check COMFYUI_URL in .env.")
+                logging.error(f"Error submitting to ComfyUI: SSL Error (Wrong Version). TIP: You are likely using 'https://' for a server that only supports 'http://'. Please check COMFYUI_URL in .env.")
             else:
-                print(f"Error submitting to ComfyUI: {e}")
+                logging.error(f"Error submitting to ComfyUI: {e}")
             return None
 
     def get_history(self, prompt_id):
@@ -107,12 +108,12 @@ class ComfyClient:
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            print(f"Error fetching ComfyUI history: {e}")
+            logging.error(f"Error fetching ComfyUI history: {e}")
             return None
 
     def wait_and_download_output(self, prompt_id, timeout=600):
         """Polls history and downloads the generated file."""
-        print(f"Waiting for generation (Prompt ID: {prompt_id})...")
+        logging.info(f"Waiting for generation (Prompt ID: {prompt_id})...")
         start_time = time.time()
         while True:
             history = self.get_history(prompt_id)
@@ -120,7 +121,7 @@ class ComfyClient:
                 break
 
             if time.time() - start_time > timeout:
-                print(f"Timeout waiting for generation (Prompt ID: {prompt_id})")
+                logging.error(f"Timeout waiting for generation (Prompt ID: {prompt_id})")
                 return None
 
             time.sleep(2)
@@ -139,13 +140,13 @@ class ComfyClient:
                     files.extend(val)
 
         if not files:
-            print("No output files found in history.")
+            logging.error("No output files found in history.")
             return None
 
         # Download the first file
         file_info = files[0]
         if not file_info or not isinstance(file_info, dict):
-            print("Invalid file info found in history.")
+            logging.error("Invalid file info found in history.")
             return None
 
         filename = file_info.get("filename")
@@ -170,8 +171,8 @@ class ComfyClient:
             with open(local_path, "wb") as f:
                 f.write(response.content)
 
-            print(f"Saved generated audio to {local_path}")
+            logging.info(f"Saved generated audio to {local_path}")
             return local_path
         except Exception as e:
-            print(f"Error downloading file: {e}")
+            logging.error(f"Error downloading file: {e}")
             return None

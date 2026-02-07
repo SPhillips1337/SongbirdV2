@@ -1,6 +1,7 @@
 import os
 import requests
 import json
+import logging
 from config import MUSIC_PROMPTS
 
 
@@ -47,9 +48,9 @@ class MusicAgent:
             }
         except (json.JSONDecodeError, ValueError, requests.RequestException) as e:
             # Catch both parsing errors and request errors here
-            print(f"Error generating or parsing musical direction: {e}")
+            logging.error(f"Error generating or parsing musical direction: {e}")
             if 'response_text' in locals():
-                print(f"Raw Response: {response_text}")
+                logging.error(f"Raw Response: {response_text}")
 
             return {
                 "tags": "upbeat, emotional, popular music",

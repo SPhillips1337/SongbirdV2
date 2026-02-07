@@ -1,6 +1,7 @@
 import requests
 import psycopg2
 import os
+import logging
 
 
 class RAGTool:
@@ -38,10 +39,10 @@ class RAGTool:
             response.raise_for_status()
             return response.json().get("output", "")
         except requests.exceptions.Timeout:
-            print(f"Error querying LightRAG: Connection timed out after 30s. Check if the server at {self.lightrag_url} is reachable.")
+            logging.error(f"Error querying LightRAG: Connection timed out after 30s. Check if the server at {self.lightrag_url} is reachable.")
             return "Connection timeout"
         except Exception as e:
-            print(f"Error querying LightRAG: {e}")
+            logging.error(f"Error querying LightRAG: {e}")
             return str(e)
 
     def query_pgvector(self, query):

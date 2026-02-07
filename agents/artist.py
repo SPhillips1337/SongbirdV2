@@ -1,5 +1,6 @@
 import os
 import requests
+import logging
 from config import ARTIST_STYLES
 
 
@@ -29,7 +30,7 @@ Important: Do not include any additional text, explanations, or conversational p
             response.raise_for_status()
             return response.json().get("response", "").strip()
         except Exception as e:
-            print(f"Error generating artist persona: {e}")
+            logging.error(f"Error generating artist persona: {e}")
             return f"A mysterious singer in the {genre} scene."
 
     def select_artist_style(self, genre):
