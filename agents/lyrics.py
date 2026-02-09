@@ -61,7 +61,7 @@ Begin creative workflow immediately."""
             state["lyrics"] = lyrics
 
             # Apply cleaning immediately
-            state["cleaned_lyrics"] = self.clean_lyrics(lyrics)
+            state["cleaned_lyrics"] = self.normalize_lyrics(lyrics)
 
         except Exception as e:
             logging.error(f"Error generating lyrics: {e}")
@@ -70,8 +70,20 @@ Begin creative workflow immediately."""
 
         return state
 
-    def clean_lyrics(self, lyrics):
-        """Clean lyrics while preserving ACE-Step markers and background vocals."""
+    def normalize_lyrics(self, lyrics):
+        """
+        Cleans and normalizes lyrics while preserving ACE-Step markers and background vocals.
+
+        Steps:
+        1. Strips leading/trailing whitespace and surrounding quotes from the whole text.
+        2. Splits by lines and strips each line individually.
+        3. Removes empty lines.
+        4. Preserves content within parentheses (e.g., background vocals).
+        """
+        # Strip surrounding quotes if the LLM output was wrapped in them
+        if (lyrics.startswith('"') and lyrics.endswith('"')) or (lyrics.startswith("'") and lyrics.endswith("'")):
+            lyrics = lyrics[1:-1].strip()
+
         lines = lyrics.split('\n')
         cleaned_lines = []
         for line in lines:
