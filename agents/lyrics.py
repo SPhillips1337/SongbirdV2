@@ -43,7 +43,8 @@ Musical Direction: {state.get('musical_direction', {})}
 Research Notes: {research_notes}
 
 Output Requirements:
-- STRUCTURE: You MUST use markers like [Intro], [Verse], [Chorus], [Bridge], [Outro].
+- STRUCTURE: You MUST use ACE-Step markers like [Intro], [Verse], [Chorus], [Bridge], [Outro], [Instrumental Break].
+- BACKGROUND VOCALS: Use (parentheses) for background vocals or ad-libs.
 - CONTENT: Make the lyrics raw, emotional, and authentic to the genre. Avoid cheesy rhymes.
 - FORMAT: STRICTLY lyrics only. No conversational text, no explanations.
 
@@ -60,7 +61,7 @@ Begin creative workflow immediately."""
             state["lyrics"] = lyrics
 
             # Apply cleaning immediately
-            state["cleaned_lyrics"] = self.clean_lyrics(lyrics)
+            state["cleaned_lyrics"] = self.normalize_lyrics(lyrics)
 
         except Exception as e:
             logging.error(f"Error generating lyrics: {e}")
@@ -69,13 +70,25 @@ Begin creative workflow immediately."""
 
         return state
 
-    def clean_lyrics(self, lyrics):
-        """Logic from n8n CleanUpLyrics node."""
+    def normalize_lyrics(self, lyrics):
+        """
+        Cleans and normalizes lyrics while preserving ACE-Step markers and background vocals.
+
+        Steps:
+        1. Strips leading/trailing whitespace and surrounding quotes from the whole text.
+        2. Splits by lines and strips each line individually.
+        3. Removes empty lines.
+        4. Preserves content within parentheses (e.g., background vocals).
+        """
+        # Strip surrounding quotes if the LLM output was wrapped in them
+        if (lyrics.startswith('"') and lyrics.endswith('"')) or (lyrics.startswith("'") and lyrics.endswith("'")):
+            lyrics = lyrics[1:-1].strip()
+
         lines = lyrics.split('\n')
-        instruction_regex = r'\s*\(.*?\)'
         cleaned_lines = []
         for line in lines:
-            cleaned = re.sub(instruction_regex, '', line).strip()
+            cleaned = line.strip()
+            # Remove empty lines
             if cleaned:
                 cleaned_lines.append(cleaned)
         return '\n'.join(cleaned_lines)

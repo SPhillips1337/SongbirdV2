@@ -19,7 +19,9 @@ class MusicAgent:
             "Task: Create a musical direction for this song.\n"
             "Output Format: Strict JSON object with no markdown formatting.\n"
             "Required Fields:\n"
-            "- 'tags': A string of evocative, descriptive tags suitable for music generation (e.g., 'ethereal vocals, thumping bass, neon atmosphere').\n"
+            "- 'tags': A string of evocative, descriptive, and structural tags suitable for music generation.\n"
+            "  - IMPORTANT: You MUST include structural tags such as [Intro], [Verse], [Chorus], [Bridge], [Outro], [Solo], [Build-up], [Drop], etc. as per ACE-Step/Aisonify standards.\n"
+            "  - Example tags: 'ethereal vocals, thumping bass, neon atmosphere, [Intro - synth], [Chorus - anthemic], [Build-up]'\n"
             "- 'bpm': An integer representing the tempo.\n"
             "- 'keyscale': A string representing the key (e.g., 'C major', 'F# minor')."
         )
