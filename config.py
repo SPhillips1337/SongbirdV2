@@ -20,7 +20,7 @@ MUSIC_PROMPTS = {
 # Artist styles by genre
 ARTIST_STYLES = {
     "RAP": "Eminem",
-    "POP": "Adele",
+    "POP": "Taylor Swift",
     "JAZZ": "Norah Jones",
     "ROCK": "Joan Jett",
     "COUNTRY": "Dolly Parton",

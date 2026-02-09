@@ -42,7 +42,7 @@ class SongbirdWorkflow:
     def node_create_artist(self, state: SongState):
         state["artist_style"] = self.artist_agent.select_artist_style(state["genre"])
         state["artist_background"] = self.artist_agent.generate_persona(state["genre"])
-        state["artist_name"] = "Sunny Skywind" # Placeholder for name extraction
+        state["artist_name"] = "Songbird" # Placeholder for name extraction
         return state
 
     def node_create_music(self, state: SongState):

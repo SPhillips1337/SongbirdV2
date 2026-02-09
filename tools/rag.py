@@ -34,7 +34,7 @@ class RAGTool:
                 f"{self.lightrag_url}/query", 
                 json=payload, 
                 headers=headers,
-                timeout=30 # Increased to 30s
+                timeout=180 # Increased to 30s
             )
             response.raise_for_status()
             return response.json().get("output", "")
