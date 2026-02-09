@@ -23,7 +23,7 @@ class MusicAgent:
             "  - IMPORTANT: You MUST include structural tags such as [Intro], [Verse], [Chorus], [Bridge], [Outro], [Solo], [Build-up], [Drop], etc. as per ACE-Step/Aisonify standards.\n"
             "  - Example tags: 'ethereal vocals, thumping bass, neon atmosphere, [Intro - synth], [Chorus - anthemic], [Build-up]'\n"
             "- 'bpm': An integer representing the tempo.\n"
-            "- 'keyscale': A string representing the key (e.g., 'C major', 'F# minor')."
+            "- 'keyscale': A string representing the key (e.g., 'C major', 'F# minor'). Use lowercase for 'major' and 'minor'."
         )
 
         try:
