@@ -43,7 +43,8 @@ Musical Direction: {state.get('musical_direction', {})}
 Research Notes: {research_notes}
 
 Output Requirements:
-- STRUCTURE: You MUST use markers like [Intro], [Verse], [Chorus], [Bridge], [Outro].
+- STRUCTURE: You MUST use ACE-Step markers like [Intro], [Verse], [Chorus], [Bridge], [Outro], [Instrumental Break].
+- BACKGROUND VOCALS: Use (parentheses) for background vocals or ad-libs.
 - CONTENT: Make the lyrics raw, emotional, and authentic to the genre. Avoid cheesy rhymes.
 - FORMAT: STRICTLY lyrics only. No conversational text, no explanations.
 
@@ -70,12 +71,12 @@ Begin creative workflow immediately."""
         return state
 
     def clean_lyrics(self, lyrics):
-        """Logic from n8n CleanUpLyrics node."""
+        """Clean lyrics while preserving ACE-Step markers and background vocals."""
         lines = lyrics.split('\n')
-        instruction_regex = r'\s*\(.*?\)'
         cleaned_lines = []
         for line in lines:
-            cleaned = re.sub(instruction_regex, '', line).strip()
+            cleaned = line.strip()
+            # Remove empty lines
             if cleaned:
                 cleaned_lines.append(cleaned)
         return '\n'.join(cleaned_lines)
