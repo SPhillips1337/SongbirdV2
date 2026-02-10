@@ -14,10 +14,13 @@ class MusicAgent:
         system_prompt = MUSIC_PROMPTS.get(genre.upper(), MUSIC_PROMPTS.get("POP", "Default POP Prompt"))
         
         user_prompt = (
-            f"User Direction: {user_direction}\n"
-            f"Genre: {genre}\n\n"
+            f"PRIMARY INSTRUCTION (USER DIRECTION): {user_direction}\n\n"
+            f"GENRE CONTEXT: {genre}\n\n"
             "Task: Create a musical direction for this song.\n"
-            "Output Format: Strict JSON object with no markdown formatting.\n"
+            "INSTRUCTIONS:\n"
+            "1. STRICTLY ADHERE to all stylistic details, vocals, and instruments mentioned in the PRIMARY INSTRUCTION.\n"
+            "2. Use the GENRE CONTEXT for atmospheric inspiration but do not let it override specific user requests.\n"
+            "3. Output Format: Strict JSON object with no markdown formatting.\n"
             "Required Fields:\n"
             "- 'tags': A string of evocative, descriptive, and structural tags suitable for music generation.\n"
             "  - IMPORTANT: You MUST include structural tags such as [Intro], [Verse], [Chorus], [Bridge], [Outro], [Solo], [Build-up], [Drop], etc. as per ACE-Step/Aisonify standards.\n"

@@ -9,17 +9,20 @@ class ArtistAgent:
         self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         self.model = os.getenv("ARTIST_MODEL", "qwen3:14b")
 
-    def generate_persona(self, genre):
+    def generate_persona(self, genre, user_direction=None):
         prompt = f"""Generate a detailed character profile for a {genre} song protagonist. The persona should be a woman in their early 20s to 30s.
 
-The profile must include:
-A classic, {genre} star two-part name like .
+        GENRE: {genre}
+        USER DIRECTION: {user_direction if user_direction else "No specific direction provided."}
 
-Please generate a backgrounds story and persona that would fit the {genre} for their life that we can reference when making music for them.
+        The profile must include:
+        A classic, {genre} star two-part name like .
 
-The final output should be a single, descriptive paragraph summarizing this character's background, ready to be used as the basis for a song.
+        Please generate a background story and persona that would fit the {genre} and strictly incorporate any specific character traits or vibes mentioned in the USER DIRECTION.
 
-Important: Do not include any additional text, explanations, or conversational phrases. Your final response must contain only the generated artist background persona."""
+        The final output should be a single, descriptive paragraph summarizing this character's background, ready to be used as the basis for a song.
+
+        Important: Do not include any additional text, explanations, or conversational phrases. Your final response must contain only the generated artist background persona."""
         
         try:
             response = requests.post(
@@ -33,5 +36,7 @@ Important: Do not include any additional text, explanations, or conversational p
             logging.error(f"Error generating artist persona: {e}")
             return f"A mysterious singer in the {genre} scene."
 
-    def select_artist_style(self, genre):
+    def select_artist_style(self, genre, user_direction=None):
+        # We could use an LLM here for more dynamic style selection based on direction,
+        # but for now, we'll stick to the mapping or a default.
         return ARTIST_STYLES.get(genre.upper(), "Adele")

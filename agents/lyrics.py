@@ -40,11 +40,14 @@ Artist: {state['artist_name']}
 Background: {state['artist_background']}
 Style: {state['artist_style']}
 Musical Direction: {state.get('musical_direction', {})}
+User Direction (High Priority): {state.get('user_direction', 'No specific direction.')}
 Research Notes: {research_notes}
 
 Output Requirements:
+- PRIMARY GOAL: Strictly follow the User Direction (High Priority) regarding vocal types, themes, and specific avoidances.
 - STRUCTURE: You MUST use ACE-Step markers like [Intro], [Verse], [Chorus], [Bridge], [Outro], [Instrumental Break].
-- BACKGROUND VOCALS: Use (parentheses) for background vocals or ad-libs.
+- BACKGROUND VOCALS: Use (parentheses) ONLY for sung background vocals or ad-libs (e.g., "(oh yeah)", "(I can't stop)").
+- INSTRUMENTAL DIRECTIONS: DO NOT include any instrumental or musical stage directions in parentheses (e.g., NO "(Guitar solo)", NO "(Epic drums)", NO "(Crushing riffs)"). Use [Instrumental Break] markers instead for non-vocal sections.
 - CONTENT: Make the lyrics raw, emotional, and authentic to the genre. Avoid cheesy rhymes.
 - FORMAT: STRICTLY lyrics only. No conversational text, no explanations.
 
@@ -70,19 +73,97 @@ Begin creative workflow immediately."""
 
         return state
 
+    def strip_musical_directions(self, lyrics):
+        """
+        Removes lines that are purely parenthetical instrumental/musical directions.
+        
+        Preserves:
+        - Background vocals like "(oh yeah)", "(I can't stop)", "(singing along)"
+        - ACE-Step markers like [Intro], [Verse], [Chorus]
+        - Regular lyric lines
+        
+        Removes:
+        - Instrumental directions like "(Guitar riff: crushing, driving)"
+        - Musical stage directions like "(Epic drums, crushing riffs)"
+        - Square bracket instrumental markers like "[Guitar distortion kicks in]"
+        - Empty parentheses "()"
+        """
+        # Keywords that indicate instrumental/musical directions (not sung vocals)
+        musical_keywords = [
+            'guitar', 'drum', 'bass', 'riff', 'solo', 'synth', 'piano', 'keys',
+            'reverb', 'distortion', 'atmospheric', 'shredding', 'face-melting',
+            'crushing', 'pounding', 'grunty', 'snare', 'kick', 'cymbal',
+            'trumpet', 'sax', 'strings', 'orchestra', 'instrumental', 'beat',
+            'melody', 'chord', 'note', 'tempo', 'rhythm', 'percussion',
+            'fade', 'echo', 'delay', 'chorus effect', 'flanger', 'phaser'
+        ]
+        
+        # Valid ACE-Step structural markers (case-insensitive)
+        valid_markers = [
+            'intro', 'verse', 'chorus', 'bridge', 'outro', 'drop', 
+            'build-up', 'breakdown', 'pre-chorus', 'hook', 'instrumental break',
+            'interlude', 'refrain', 'coda', 'solo'
+        ]
+        
+        lines = lyrics.split('\n')
+        filtered_lines = []
+        
+        for line in lines:
+            stripped = line.strip()
+            
+            # Check if the entire line is a parenthetical expression
+            if stripped.startswith('(') and stripped.endswith(')'):
+                # Extract content inside parentheses
+                content = stripped[1:-1].strip()
+                
+                # Remove empty parentheses
+                if not content:
+                    continue
+                
+                # Check if it contains any musical keywords
+                is_musical_direction = any(keyword in content.lower() for keyword in musical_keywords)
+                
+                if is_musical_direction:
+                    # Skip this line - it's an instrumental direction
+                    continue
+            
+            # Check if the entire line is a square bracket expression
+            elif stripped.startswith('[') and stripped.endswith(']'):
+                # Extract content inside brackets
+                content = stripped[1:-1].strip().lower()
+                
+                # Check if it's a valid structural marker
+                is_valid_marker = any(marker in content for marker in valid_markers)
+                
+                # If it's not a valid marker, check if it contains musical keywords
+                if not is_valid_marker:
+                    is_musical_direction = any(keyword in content for keyword in musical_keywords)
+                    if is_musical_direction:
+                        # Skip this line - it's an instrumental direction
+                        continue
+            
+            # Keep all other lines (including background vocals)
+            filtered_lines.append(line)
+        
+        return '\n'.join(filtered_lines)
+
     def normalize_lyrics(self, lyrics):
         """
         Cleans and normalizes lyrics while preserving ACE-Step markers and background vocals.
 
         Steps:
         1. Strips leading/trailing whitespace and surrounding quotes from the whole text.
-        2. Splits by lines and strips each line individually.
-        3. Removes empty lines.
-        4. Preserves content within parentheses (e.g., background vocals).
+        2. Filters out parenthetical instrumental/musical directions.
+        3. Splits by lines and strips each line individually.
+        4. Removes empty lines.
+        5. Preserves genuine background vocals in parentheses.
         """
         # Strip surrounding quotes if the LLM output was wrapped in them
         if (lyrics.startswith('"') and lyrics.endswith('"')) or (lyrics.startswith("'") and lyrics.endswith("'")):
             lyrics = lyrics[1:-1].strip()
+
+        # Filter out musical directions
+        lyrics = self.strip_musical_directions(lyrics)
 
         lines = lyrics.split('\n')
         cleaned_lines = []
