@@ -171,7 +171,9 @@ def scan_recent_songs(output_dir, n=3):
     # Sort files by the numeric part in the filename
     # Assuming filename format: Songbird_song_{number}__metadata.txt
     def extract_number(filename):
-        match = re.search(r"song_(\d+)", filename)
+        # Match "song_" followed by digits and another underscore
+        # Actual format is usually: Songbird_song_00040__metadata.txt
+        match = re.search(r"song_(\d+)_", filename)
         if match:
             return int(match.group(1))
         return 0
@@ -253,13 +255,21 @@ def generate_next_direction(theme, base_direction, previous_songs_summaries, cur
     }
 
     try:
-        response = requests.post("http://localhost:11434/api/generate", json=payload)
-        response.raise_for_status()
+        response = requests.post(
+            "http://localhost:11434/api/generate", 
+            json=payload,
+            timeout=120 # Prevent indefinite hangs
+        )
+        # Check status before trying to parse JSON
+        if response.status_code != 200:
+            logging.error(f"Ollama returned non-200 status: {response.status_code}")
+            return f"{base_direction} {theme}. Continue the story (Song {current_song_index}/{total_songs})."
+            
         result = response.json()
         return result.get("response", "").strip()
     except Exception as e:
         logging.error(f"Error calling Ollama: {e}")
-        # Fallback if Ollama fails
+        # Graceful fallback if Ollama fails or times out
         return f"{base_direction} {theme}. Continue the story (Song {current_song_index}/{total_songs})."
 
 def main():

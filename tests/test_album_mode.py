@@ -36,6 +36,7 @@ class TestAlbumMode(unittest.TestCase):
 
         # Mock Ollama response for generate_next_direction
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"response": "Next song direction"}
         mock_post.return_value = mock_response
 
