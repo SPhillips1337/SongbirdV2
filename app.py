@@ -2,6 +2,9 @@ import os
 import json
 import argparse
 import logging
+import requests
+import glob
+import re
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 
@@ -158,6 +161,107 @@ class SongbirdWorkflow:
         except Exception as e:
             logging.error(f"Error saving metadata: {e}")
 
+def scan_recent_songs(output_dir, n=3):
+    """
+    Scans the output directory for recent song metadata files.
+    Sorts by the song number in the filename and returns summaries of the last n songs.
+    """
+    files = glob.glob(os.path.join(output_dir, "*_metadata.txt"))
+
+    # Sort files by the numeric part in the filename
+    # Assuming filename format: Songbird_song_{number}__metadata.txt
+    def extract_number(filename):
+        match = re.search(r"song_(\d+)", filename)
+        if match:
+            return int(match.group(1))
+        return 0
+
+    sorted_files = sorted(files, key=extract_number)
+    recent_files = sorted_files[-n:] if n > 0 else []
+
+    summaries = []
+    for filepath in recent_files:
+        try:
+            with open(filepath, "r") as f:
+                content = f.read()
+
+            summary = {}
+            # simple parsing
+            artist_match = re.search(r"Artist: (.*)", content)
+            background_match = re.search(r"Background: (.*)", content)
+
+            # Extract lyrics section (first few lines)
+            lyrics_section = ""
+            if "--- Lyrics ---" in content:
+                parts = content.split("--- Lyrics ---")
+                if len(parts) > 1:
+                    lyrics_raw = parts[1].split("--- Research Notes ---")[0].strip()
+                    # Take first 10 lines
+                    lyrics_lines = lyrics_raw.split("\n")[:10]
+                    lyrics_section = "\n".join(lyrics_lines)
+
+            # Extract musical direction
+            music_section = ""
+            if "--- Musical Direction ---" in content:
+                parts = content.split("--- Musical Direction ---")
+                if len(parts) > 1:
+                    music_section = parts[1].split("--- Lyrics ---")[0].strip()
+
+            summary["number"] = extract_number(filepath)
+            summary["artist"] = artist_match.group(1) if artist_match else "Unknown"
+            summary["background"] = background_match.group(1) if background_match else "Unknown"
+            summary["lyrics_snippet"] = lyrics_section
+            summary["musical_direction"] = music_section
+
+            summaries.append(summary)
+        except Exception as e:
+            logging.error(f"Error reading metadata file {filepath}: {e}")
+
+    return summaries
+
+def generate_next_direction(theme, base_direction, previous_songs_summaries, current_song_index, total_songs):
+    """
+    Generates the direction for the next song using Ollama.
+    """
+    system_prompt = (
+        "You are an expert rock album concept writer. Given an album theme and summaries of previous songs, "
+        "suggest the NEXT direction prompt (a short string, 50-100 words) that logically continues the narrative arc "
+        "while keeping musical cohesion. Make it feel like the next chapter in a story. "
+        "Always include references to progression (e.g., 'continue the wolf saga', 'now the pack unites', 'climactic hunt', 'dawn reflection/finale')."
+    )
+
+    prev_songs_text = ""
+    for i, summary in enumerate(previous_songs_summaries):
+        prev_songs_text += (
+            f"Song {summary.get('number', i+1)}: "
+            f"Background: {summary.get('background', 'N/A')} | "
+            f"Key lyrics: {summary.get('lyrics_snippet', 'N/A')[:200]}... | "
+            f"Vibe: {summary.get('musical_direction', 'N/A')}\n"
+        )
+
+    user_prompt = (
+        f"Album theme: {theme}\n"
+        f"Shared constraints: {base_direction}\n"
+        f"Previous songs summary:\n{prev_songs_text}\n"
+        f"Now generate the direction prompt for song {current_song_index} of {total_songs}:"
+    )
+
+    payload = {
+        "model": "llama3",  # Assuming llama3 or similar is available
+        "prompt": f"{system_prompt}\n\n{user_prompt}",
+        "stream": False
+    }
+
+    try:
+        response = requests.post("http://localhost:11434/api/generate", json=payload)
+        response.raise_for_status()
+        result = response.json()
+        return result.get("response", "").strip()
+    except Exception as e:
+        logging.error(f"Error calling Ollama: {e}")
+        # Fallback if Ollama fails
+        return f"{base_direction} {theme}. Continue the story (Song {current_song_index}/{total_songs})."
+
 def main():
     parser = argparse.ArgumentParser(description="Songbird: AI Song Generation Agent")
     parser.add_argument("--genre", type=str, default="POP", help="Song genre (default: POP)")
@@ -165,7 +269,16 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--output", type=str, default="output", help="Output directory (default: output)")
 
+    # Album mode arguments
+    parser.add_argument("--album", action="store_true", help="Enable album mode")
+    parser.add_argument("--theme", type=str, help="Album theme (required if --album is used)")
+    parser.add_argument("--num-songs", type=int, default=6, help="Number of songs for the album (default: 6)")
+    parser.add_argument("--base-direction", type=str, default="", help="Shared constraints for every song")
+
     args = parser.parse_args()
+
+    if args.album and not args.theme:
+        parser.error("--theme is required when --album is used.")
 
     # Configure logging
     log_level = logging.INFO if args.verbose else logging.WARNING
@@ -173,17 +286,53 @@ def main():
 
     flow = SongbirdWorkflow(output_dir=args.output)
 
-    # Use the parsed arguments
-    final_state = flow.run(args.genre, args.direction)
+    if args.album:
+        print(f"Starting Album Generation Mode: '{args.theme}'")
+        print(f"Total songs: {args.num_songs}")
 
-    print("Workflow Complete!")
-    if final_state.get('cleaned_lyrics'):
-        print(f"Lyrics Preview: {final_state['cleaned_lyrics'][:100]}...")
+        for i in range(1, args.num_songs + 1):
+            print(f"\n--- Generating Song {i}/{args.num_songs} ---")
 
-    if final_state.get('audio_path'):
-        print(f"Audio Path: {final_state['audio_path']}")
+            if i == 1:
+                # First song direction
+                current_direction = f"{args.base_direction} Start the album saga: {args.theme}. Begin with the awakening/escape/origin story."
+            else:
+                # Subsequent songs: get context from previous songs
+                print("Retrieving context from previous songs...")
+                recent_summaries = scan_recent_songs(args.output, n=3)
+                current_direction = generate_next_direction(
+                    args.theme,
+                    args.base_direction,
+                    recent_summaries,
+                    i,
+                    args.num_songs
+                )
+
+            logging.info(f"Song {i} Direction: {current_direction}")
+            print(f"Direction: {current_direction}")
+
+            # Run workflow for this song
+            final_state = flow.run(args.genre, current_direction)
+
+            if final_state.get('audio_path') and final_state['audio_path'] != "error":
+                print(f"Song {i} complete: {final_state['audio_path']}")
+            else:
+                print(f"Song {i} failed to generate audio.")
+
+        print("\nAlbum Generation Complete!")
+
     else:
-        print("Audio Path: None")
+        # Standard single song mode
+        final_state = flow.run(args.genre, args.direction)
+
+        print("Workflow Complete!")
+        if final_state.get('cleaned_lyrics'):
+            print(f"Lyrics Preview: {final_state['cleaned_lyrics'][:100]}...")
+
+        if final_state.get('audio_path'):
+            print(f"Audio Path: {final_state['audio_path']}")
+        else:
+            print("Audio Path: None")
 
 if __name__ == "__main__":
     main()
