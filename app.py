@@ -5,6 +5,7 @@ import logging
 import requests
 import glob
 import re
+import config
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 
@@ -249,7 +250,7 @@ def generate_next_direction(theme, base_direction, previous_songs_summaries, cur
     )
 
     payload = {
-        "model": "llama3",  # Assuming llama3 or similar is available
+        "model": config.ALBUM_MODEL,
         "prompt": f"{system_prompt}\n\n{user_prompt}",
         "stream": False
     }
