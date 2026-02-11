@@ -1,3 +1,15 @@
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Ollama Configuration
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+ARTIST_MODEL = os.getenv("ARTIST_MODEL", "qwen3:14b")
+LYRIC_MODEL = os.getenv("LYRIC_MODEL", "qwen3:14b")
+ALBUM_MODEL = os.getenv("ALBUM_MODEL", "llama3")
+
 # Musical direction prompts by genre
 MUSIC_PROMPTS = {
     "RAP": "You are an expert RAP music producer focusing on heavy beats, intricate flows, and street authenticity. Generate a detailed musical direction for a hard-hitting RAP track. You must generate tags that include style modifiers and structural elements (e.g., [Intro], [Beat Drop], [Chorus - anthemic], [Verse - fast flow], [Outro]).",
@@ -22,7 +34,7 @@ ARTIST_STYLES = {
     "RAP": "Eminem",
     "POP": "Taylor Swift",
     "JAZZ": "Norah Jones",
-    "ROCK": "Joan Jett",
+    "ROCK": "Guns N Roses",
     "COUNTRY": "Dolly Parton",
     "R&B": "Alicia Keys",
     "ELECTRONIC": "Daft Punk",
