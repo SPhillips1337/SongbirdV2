@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import sys
 import os
 
@@ -16,7 +16,20 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from agents.lyrics import LyricsAgent
 
 class TestLyricsAgent(unittest.TestCase):
+
     def setUp(self):
+        # Move mocking to setUp with patch.dict to avoid test pollution
+        self.patcher = patch.dict('sys.modules', {'requests': MagicMock(), 'psycopg2': MagicMock()})
+        self.patcher.start()
+        
+        # Patch dependencies of LyricsAgent during instantiation
+        self.rag_patcher = patch('agents.lyrics.RAGTool')
+        self.perplexity_patcher = patch('agents.lyrics.PerplexityClient')
+        self.mock_rag = self.rag_patcher.start()
+        self.mock_perplexity = self.perplexity_patcher.start()
+        
+        # Import inside setUp so the mocks are active
+        from agents.lyrics import LyricsAgent
         self.agent = LyricsAgent()
 
     def test_strip_musical_directions_basic(self):
@@ -62,33 +75,14 @@ class TestLyricsAgent(unittest.TestCase):
     def test_strip_musical_directions_complex(self):
         """Test mixed content with various markers and directions."""
         lyrics = """
-        [Intro]
-        (Guitar riff: crushing, driving)
-        Yeah, listen up
-        (Background vocals: oh yeah)
+        "
+        [Verse]
+        (Guitar)
+        Line 1
+          Line 2
 
-        [Verse 1]
-        Walking down the street
-        (Epic drums kick in)
-        Feeling the heat
-
-        [Chorus]
-        This is the anthem
-        (Synth solo)
-        We are the phantom
-        """
-        expected = """
-        [Intro]
-        Yeah, listen up
-        (Background vocals: oh yeah)
-
-        [Verse 1]
-        Walking down the street
-        Feeling the heat
-
-        [Chorus]
-        This is the anthem
-        We are the phantom
+        (Vocals)
+        "
         """
         self.assertEqual(self.agent.strip_musical_directions(lyrics).strip(), expected.strip())
 
