@@ -3,22 +3,30 @@ from unittest.mock import MagicMock, patch
 import sys
 import os
 
-# Mock dependencies to avoid ImportError
-sys.modules['requests'] = MagicMock()
-sys.modules['psycopg2'] = MagicMock()
-
 # Add root directory to sys.path to allow imports from agents
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from agents.lyrics import LyricsAgent
-
 class TestLyricsAgent(unittest.TestCase):
 
-    @patch('agents.lyrics.RAGTool')
-    @patch('agents.lyrics.PerplexityClient')
-    def setUp(self, MockPerplexity, MockRAG):
-        # We mock RAGTool and PerplexityClient to avoid instantiation side effects
+    def setUp(self):
+        # Move mocking to setUp with patch.dict to avoid test pollution
+        self.patcher = patch.dict('sys.modules', {'requests': MagicMock(), 'psycopg2': MagicMock()})
+        self.patcher.start()
+        
+        # Patch dependencies of LyricsAgent during instantiation
+        self.rag_patcher = patch('agents.lyrics.RAGTool')
+        self.perplexity_patcher = patch('agents.lyrics.PerplexityClient')
+        self.mock_rag = self.rag_patcher.start()
+        self.mock_perplexity = self.perplexity_patcher.start()
+        
+        # Import inside setUp so the mocks are active
+        from agents.lyrics import LyricsAgent
         self.agent = LyricsAgent()
+
+    def tearDown(self):
+        self.perplexity_patcher.stop()
+        self.rag_patcher.stop()
+        self.patcher.stop()
 
     def test_strip_musical_directions_preserves_lyrics(self):
         lyrics = "[Verse 1]\nI'm walking down the street\n(Walking down the street)\nYeah I feel the heat"
