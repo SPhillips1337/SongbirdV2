@@ -1,18 +1,30 @@
-import os
-import requests
 import re
+import requests
 import logging
+from config import OLLAMA_BASE_URL, LYRIC_MODEL
 from tools.rag import RAGTool
 from tools.perplexity import PerplexityClient
 
 # Keywords that indicate instrumental/musical directions (not sung vocals)
 MUSICAL_KEYWORDS = [
-    'guitar', 'drum', 'bass', 'riff', 'solo', 'synth', 'piano', 'keys',
+    'guitar', 'guitars', 'drum', 'drums', 'bass', 'basses', 'riff', 'riffs',
+    'solo', 'solos', 'synth', 'synths', 'piano', 'pianos', 'keys',
     'reverb', 'distortion', 'atmospheric', 'shredding', 'face-melting',
-    'crushing', 'pounding', 'grunty', 'snare', 'kick', 'cymbal',
-    'trumpet', 'sax', 'strings', 'orchestra', 'instrumental', 'beat',
-    'melody', 'chord', 'note', 'tempo', 'rhythm', 'percussion',
-    'fade', 'echo', 'delay', 'chorus effect', 'flanger', 'phaser'
+    'crushing', 'pounding', 'grunty', 'snare', 'snares', 'kick', 'kicks',
+    'cymbal', 'cymbals', 'trumpet', 'trumpets', 'sax', 'saxes', 'strings',
+    'orchestra', 'orchestras', 'instrumental', 'instrumentals', 'beat', 'beats',
+    'melody', 'melodies', 'chord', 'chords', 'note', 'notes', 'tempo', 'tempos',
+    'rhythm', 'rhythms', 'percussion', 'fade', 'fades', 'echo', 'echoes',
+    'delay', 'delays', 'chorus effect', 'flanger', 'phaser'
+]
+
+# Keywords that indicate vocal-related lines (should be preserved)
+VOCAL_KEYWORDS = [
+    'vocal', 'vocals', 'singing', 'ad-lib', 'ad-libs', 'harmony', 'harmonies',
+    'background', 'verse', 'verses', 'chorus', 'choruses', 'hook', 'hooks',
+    'bridge', 'bridges', 'outro', 'outros', 'intro', 'intros', 'ooh', 'aah',
+    'yeah', 'voice', 'voices', 'sung', 'choir', 'choirs', 'backing',
+    'na', 'la', 'da', 'whoa', 'oh'
 ]
 
 # Valid ACE-Step structural markers (case-insensitive)
@@ -24,20 +36,24 @@ VALID_MARKERS = [
 
 # Compile regex patterns for performance
 MUSICAL_KEYWORDS_REGEX = re.compile(
-    r'(?:' + '|'.join(map(re.escape, MUSICAL_KEYWORDS)) + r')',
+    r'\b(?:' + '|'.join(map(re.escape, MUSICAL_KEYWORDS)) + r')\b',
     re.IGNORECASE
 )
 
 VALID_MARKERS_REGEX = re.compile(
-    r'(?:' + '|'.join(map(re.escape, VALID_MARKERS)) + r')',
+    r'\b(?:' + '|'.join(map(re.escape, VALID_MARKERS)) + r')\b',
     re.IGNORECASE
 )
 
+VOCAL_KEYWORDS_REGEX = re.compile(
+    r'\b(?:' + '|'.join(map(re.escape, VOCAL_KEYWORDS)) + r')\b',
+    re.IGNORECASE
+)
 
 class LyricsAgent:
     def __init__(self):
-        self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.model = os.getenv("LYRIC_MODEL", "qwen3:14b")
+        self.base_url = OLLAMA_BASE_URL
+        self.model = LYRIC_MODEL
         self.rag = RAGTool()
         self.perplexity = PerplexityClient()
 
@@ -130,11 +146,21 @@ Begin creative workflow immediately."""
                 # Remove empty parentheses
                 if not content:
                     continue
+
+                # Explicitly preserve background vocals even if they contain keywords
+                # Common variations: (Background vocals: ...), (Vocals: ...)
+                lower_content = content.lower()
+                if lower_content.startswith("background vocals") or lower_content.startswith("vocals"):
+                    filtered_lines.append(line)
+                    continue
+                
+                # Check if it's explicitly vocal-related
+                is_vocal = VOCAL_KEYWORDS_REGEX.search(content)
                 
                 # Check if it contains any musical keywords
                 is_musical_direction = MUSICAL_KEYWORDS_REGEX.search(content)
                 
-                if is_musical_direction:
+                if is_musical_direction and not is_vocal:
                     # Skip this line - it's an instrumental direction
                     continue
             
@@ -148,8 +174,9 @@ Begin creative workflow immediately."""
                 
                 # If it's not a valid marker, check if it contains musical keywords
                 if not is_valid_marker:
+                    is_vocal = VOCAL_KEYWORDS_REGEX.search(content)
                     is_musical_direction = MUSICAL_KEYWORDS_REGEX.search(content)
-                    if is_musical_direction:
+                    if is_musical_direction and not is_vocal:
                         # Skip this line - it's an instrumental direction
                         continue
             
@@ -169,6 +196,9 @@ Begin creative workflow immediately."""
         4. Removes empty lines.
         5. Preserves genuine background vocals in parentheses.
         """
+        # Strip whitespace first
+        lyrics = lyrics.strip()
+
         # Strip surrounding quotes if the LLM output was wrapped in them
         if (lyrics.startswith('"') and lyrics.endswith('"')) or (lyrics.startswith("'") and lyrics.endswith("'")):
             lyrics = lyrics[1:-1].strip()

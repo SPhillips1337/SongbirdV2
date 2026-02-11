@@ -1,13 +1,12 @@
-import os
 import requests
 import logging
-from config import ARTIST_STYLES
+from config import ARTIST_STYLES, OLLAMA_BASE_URL, ARTIST_MODEL
 
 
 class ArtistAgent:
     def __init__(self):
-        self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.model = os.getenv("ARTIST_MODEL", "qwen3:14b")
+        self.base_url = OLLAMA_BASE_URL
+        self.model = ARTIST_MODEL
 
     def generate_persona(self, genre, user_direction=None):
         prompt = f"""Generate a detailed character profile for a {genre} song protagonist. The persona should be a woman in their early 20s to 30s.
@@ -39,4 +38,4 @@ class ArtistAgent:
     def select_artist_style(self, genre, user_direction=None):
         # We could use an LLM here for more dynamic style selection based on direction,
         # but for now, we'll stick to the mapping or a default.
-        return ARTIST_STYLES.get(genre.upper(), "Adele")
+        return ARTIST_STYLES.get(genre.upper(), DEFAULT_ARTIST_STYLE)

@@ -1,5 +1,4 @@
 import requests
-import psycopg2
 import os
 import logging
 
@@ -9,9 +8,9 @@ class RAGTool:
         self.lightrag_url = os.getenv("LIGHTRAG_URL", "http://localhost:9621")
         self.db_params = {
             "host": os.getenv("POSTGRES_HOST", "localhost"),
-            "database": "n8n", # Typical n8n db name
-            "user": "n8n",
-            "password": "" # Assuming no password for local dev or handle via env
+            "database": os.getenv("POSTGRES_DB", "n8n"), # Typical n8n db name
+            "user": os.getenv("POSTGRES_USER", "n8n"),
+            "password": os.getenv("POSTGRES_PASSWORD", "") # Assuming no password for local dev or handle via env
         }
 
     def query_lightrag(self, query):

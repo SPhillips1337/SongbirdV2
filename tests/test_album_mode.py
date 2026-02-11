@@ -4,10 +4,17 @@ import sys
 import os
 import argparse
 
+# Robust Mocking: Mock missing dependencies before app imports
+sys.modules['langgraph'] = MagicMock()
+sys.modules['langgraph.graph'] = MagicMock()
+sys.modules['psycopg2'] = MagicMock()
+sys.modules['dotenv'] = MagicMock()
+
 # Add root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import app
+from config import ALBUM_MODEL
 
 class TestAlbumMode(unittest.TestCase):
 
@@ -76,7 +83,7 @@ class TestAlbumMode(unittest.TestCase):
         # Verify requests.post (Ollama) was called once (for the second song)
         self.assertEqual(mock_post.call_count, 1)
         args, kwargs = mock_post.call_args
-        self.assertEqual(kwargs['json']['model'], 'llama3')
+        self.assertEqual(kwargs['json']['model'], ALBUM_MODEL)
         self.assertIn("Test Album Theme", kwargs['json']['prompt'])
 
 if __name__ == '__main__':
