@@ -3,9 +3,10 @@ from unittest.mock import MagicMock
 import sys
 import os
 
-# Mock dependencies BEFORE any imports from agents
+# Robust Mocking: Mock all external dependencies before any imports
 sys.modules['requests'] = MagicMock()
 sys.modules['psycopg2'] = MagicMock()
+sys.modules['langgraph'] = MagicMock()
 sys.modules['tools.rag'] = MagicMock()
 sys.modules['tools.perplexity'] = MagicMock()
 
@@ -18,8 +19,8 @@ class TestLyricsAgent(unittest.TestCase):
     def setUp(self):
         self.agent = LyricsAgent()
 
-    def test_strip_musical_directions(self):
-        # Test case 1: Basic musical direction removal
+    def test_strip_musical_directions_basic(self):
+        """Test basic removal of simple musical directions."""
         lyrics = """
         [Intro]
         (Guitar riff)
@@ -32,23 +33,34 @@ class TestLyricsAgent(unittest.TestCase):
         self.assertEqual(self.agent.strip_musical_directions(lyrics).strip(), expected.strip())
 
     def test_strip_musical_directions_preserves_vocals(self):
-        # Test case 2: Preserves background vocals
+        """Test that background vocals are preserved."""
         lyrics = """
         (Background vocals: oh yeah)
         Singing loud
         (I can't stop)
-        (Background vocals: epic guitar)
         """
         expected = """
         (Background vocals: oh yeah)
         Singing loud
         (I can't stop)
-        (Background vocals: epic guitar)
+        """
+        self.assertEqual(self.agent.strip_musical_directions(lyrics).strip(), expected.strip())
+
+    def test_strip_musical_directions_preserves_vocals_with_keywords(self):
+        """Test that background vocals are preserved even if they contain musical keywords."""
+        lyrics = """
+        (Background vocals: heavy breathing over guitar)
+        (Vocals: screaming like a synth)
+        (Guitar solo)
+        """
+        expected = """
+        (Background vocals: heavy breathing over guitar)
+        (Vocals: screaming like a synth)
         """
         self.assertEqual(self.agent.strip_musical_directions(lyrics).strip(), expected.strip())
 
     def test_strip_musical_directions_complex(self):
-        # Test case 3: Mixed content
+        """Test mixed content with various markers and directions."""
         lyrics = """
         [Intro]
         (Guitar riff: crushing, driving)
@@ -81,9 +93,7 @@ class TestLyricsAgent(unittest.TestCase):
         self.assertEqual(self.agent.strip_musical_directions(lyrics).strip(), expected.strip())
 
     def test_strip_bracket_musical_directions(self):
-        # Test case 4: Bracket musical directions
-        # Note: [Drum solo] is preserved because 'solo' is a valid marker.
-        # We test with [Heavy drums] which should be removed.
+        """Test removal of bracketed musical directions that aren't valid structural markers."""
         lyrics = """
         [Guitar distortion kicks in]
         [Verse 1]
