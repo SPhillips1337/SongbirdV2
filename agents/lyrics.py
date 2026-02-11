@@ -1,6 +1,5 @@
 import os
 import requests
-import re
 import logging
 from tools.rag import RAGTool
 from tools.perplexity import PerplexityClient
