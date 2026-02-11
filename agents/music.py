@@ -1,14 +1,13 @@
-import os
 import requests
 import json
 import logging
-from config import MUSIC_PROMPTS
+from config import MUSIC_PROMPTS, OLLAMA_BASE_URL, LYRIC_MODEL
 
 
 class MusicAgent:
     def __init__(self):
-        self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.model = os.getenv("LYRIC_MODEL", "qwen3:14b")
+        self.base_url = OLLAMA_BASE_URL
+        self.model = LYRIC_MODEL
 
     def generate_direction(self, genre, user_direction):
         system_prompt = MUSIC_PROMPTS.get(genre.upper(), MUSIC_PROMPTS.get("POP", "Default POP Prompt"))
