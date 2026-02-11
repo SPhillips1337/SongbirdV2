@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import argparse
 import logging
 import requests
@@ -76,8 +77,13 @@ class SongbirdWorkflow:
         return f"{note} {scale}"
 
     def node_create_artist(self, state: SongState):
-        state["artist_style"] = self.artist_agent.select_artist_style(state["genre"], state["user_direction"])
-        state["artist_background"] = self.artist_agent.generate_persona(state["genre"], state["user_direction"])
+        # Check if artist style/background are already provided (e.g. in Album Mode)
+        if not state.get("artist_style"):
+            state["artist_style"] = self.artist_agent.select_artist_style(state["genre"], state["user_direction"])
+
+        if not state.get("artist_background"):
+            state["artist_background"] = self.artist_agent.generate_persona(state["genre"], state["user_direction"])
+
         state["artist_name"] = "Songbird" # Placeholder for name extraction
         return state
 
@@ -99,12 +105,16 @@ class SongbirdWorkflow:
             bpm = 120
             keyscale = "C major"
 
+        # Use seed if provided (for consistent audio generation)
+        seed = state.get("seed")
+
         result = self.comfy.submit_prompt(
             state["cleaned_lyrics"], 
             tags=tags,
             bpm=bpm,
             keyscale=keyscale,
-            filename_prefix=f"{state['artist_name']}_song"
+            filename_prefix=f"{state['artist_name']}_song",
+            seed=seed
         )
 
         if result and "prompt_id" in result:
@@ -117,13 +127,14 @@ class SongbirdWorkflow:
 
         return state
 
-    def run(self, genre, user_direction):
+    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None):
         initial_state = {
             "genre": genre,
             "user_direction": user_direction,
             "artist_name": None,
-            "artist_background": None,
-            "artist_style": None,
+            "artist_background": artist_background,
+            "artist_style": artist_style,
+            "seed": seed,
             "musical_direction": None,
             "lyrics": None,
             "cleaned_lyrics": None,
@@ -258,6 +269,13 @@ def main():
         print(f"Starting Album Generation Mode: '{args.theme}'")
         print(f"Total songs: {args.num_songs}")
 
+        # Master Seed Logic for Consistent Audio
+        master_seed = int(time.time())
+        persistent_artist_style = None
+        persistent_artist_background = None
+
+        logging.info(f"Album Master Seed: {master_seed}")
+
         for i in range(1, args.num_songs + 1):
             print(f"\n--- Generating Song {i}/{args.num_songs} ---")
 
@@ -280,7 +298,19 @@ def main():
             print(f"Direction: {current_direction}")
 
             # Run workflow for this song
-            final_state = flow.run(args.genre, current_direction)
+            final_state = flow.run(
+                args.genre,
+                current_direction,
+                seed=master_seed,
+                artist_style=persistent_artist_style,
+                artist_background=persistent_artist_background
+            )
+
+            # Capture artist info from the first song if not already captured
+            if persistent_artist_style is None:
+                persistent_artist_style = final_state.get("artist_style")
+                persistent_artist_background = final_state.get("artist_background")
+                logging.info(f"Captured Persistent Artist Style: {persistent_artist_style}")
 
             if final_state.get('audio_path') and final_state['audio_path'] != "error":
                 print(f"Song {i} complete: {final_state['audio_path']}")
