@@ -5,9 +5,10 @@ import os
 import logging
 
 class ComfyClient:
-    def __init__(self, url=None, output_dir="output"):
+    def __init__(self, url=None, output_dir="output", timeout=30):
         self.url = url or os.getenv("COMFYUI_URL", "http://localhost:8188")
         self.output_dir = output_dir
+        self.timeout = timeout
         os.makedirs(self.output_dir, exist_ok=True)
 
     def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird"):
@@ -92,7 +93,7 @@ class ComfyClient:
         }
 
         try:
-            response = requests.post(f"{self.url}/prompt", json={"prompt": prompt})
+            response = requests.post(f"{self.url}/prompt", json={"prompt": prompt}, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except Exception as e:
@@ -104,7 +105,7 @@ class ComfyClient:
 
     def get_history(self, prompt_id):
         try:
-            response = requests.get(f"{self.url}/history/{prompt_id}")
+            response = requests.get(f"{self.url}/history/{prompt_id}", timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except Exception as e:
@@ -162,7 +163,7 @@ class ComfyClient:
             "type": folder_type
         }
         try:
-            response = requests.get(f"{self.url}/view", params=params)
+            response = requests.get(f"{self.url}/view", params=params, timeout=self.timeout)
             response.raise_for_status()
 
             # Save to local output dir
