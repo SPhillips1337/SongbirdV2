@@ -7,11 +7,17 @@ class PerplexityClient:
     def __init__(self):
         self.api_key = os.getenv("PERPLEXITY_API_KEY")
         self.perplexica_url = os.getenv("PERPLEXICA_URL")
-        self.url = self.perplexica_url + "/chat/completions" if self.perplexica_url and not self.api_key else "https://api.perplexity.ai/chat/completions"
+        
+        # Priority: If PERPLEXICA_URL is set, use it. Otherwise default to Perplexity AI.
+        if self.perplexica_url:
+            base_url = self.perplexica_url.rstrip('/')
+            self.url = f"{base_url}/chat/completions"
+        else:
+            self.url = "https://api.perplexity.ai/chat/completions"
 
     def search(self, query, system_prompt=None):
         if not self.api_key and not self.perplexica_url:
-            return "Perplexity API key missing."
+            return "Configuration missing: PERPLEXITY_API_KEY or PERPLEXICA_URL must be set."
 
         headers = {
             "Content-Type": "application/json"
