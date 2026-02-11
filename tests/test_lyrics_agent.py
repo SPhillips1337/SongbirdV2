@@ -72,6 +72,22 @@ class TestLyricsAgent(unittest.TestCase):
         result = self.agent.strip_musical_directions(lyrics)
         self.assertEqual(result, expected)
 
+    def test_strip_musical_directions_preserves_vocals_with_musical_keywords(self):
+        # From PR #7 fix: verify preservation of "(Background vocals: epic guitar)"
+        lyrics = """
+        (Background vocals: oh yeah)
+        Singing loud
+        (I can't stop)
+        (Background vocals: epic guitar)
+        """
+        expected = """
+        (Background vocals: oh yeah)
+        Singing loud
+        (I can't stop)
+        (Background vocals: epic guitar)
+        """
+        self.assertEqual(self.agent.strip_musical_directions(lyrics).strip(), expected.strip())
+
     def test_normalize_lyrics(self):
         # normalize_lyrics strips quotes, removes musical directions, strips lines, removes empty lines
         lyrics = """

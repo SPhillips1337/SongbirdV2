@@ -22,7 +22,7 @@ ARTIST_STYLES = {
     "RAP": "Eminem",
     "POP": "Taylor Swift",
     "JAZZ": "Norah Jones",
-    "ROCK": "Guns N Roses",
+    "ROCK": "Joan Jett",
     "COUNTRY": "Dolly Parton",
     "R&B": "Alicia Keys",
     "ELECTRONIC": "Daft Punk",
