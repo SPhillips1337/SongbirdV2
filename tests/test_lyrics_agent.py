@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 import sys
 import os
+import textwrap
 
 # Add root directory to sys.path to allow imports from agents
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -9,23 +10,26 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 class TestLyricsAgent(unittest.TestCase):
 
     def setUp(self):
-        # Localized mocking to prevent test pollution
+        # Move mocking to setUp with patch.dict to avoid test pollution
+        # Robust Mocking: Mock all external dependencies before any imports
         self.patcher = patch.dict('sys.modules', {
             'requests': MagicMock(),
             'psycopg2': MagicMock(),
             'langgraph': MagicMock(),
             'langgraph.graph': MagicMock(),
-            'dotenv': MagicMock()
+            'dotenv': MagicMock(),
+            'tools.rag': MagicMock(),
+            'tools.perplexity': MagicMock()
         })
         self.patcher.start()
         
-        # Patch internal dependencies
+        # Patch dependencies of LyricsAgent during instantiation
         self.rag_patcher = patch('agents.lyrics.RAGTool')
         self.perplexity_patcher = patch('agents.lyrics.PerplexityClient')
         self.mock_rag = self.rag_patcher.start()
         self.mock_perplexity = self.perplexity_patcher.start()
         
-        # Import inside setUp during active patch
+        # Import inside setUp during active patch session to guarantee correct mock application
         from agents.lyrics import LyricsAgent
         self.agent = LyricsAgent()
 
@@ -114,6 +118,41 @@ class TestLyricsAgent(unittest.TestCase):
         self.assertEqual(self.agent.normalize_lyrics(""), "")
         self.assertEqual(self.agent.normalize_lyrics("   "), "")
         self.assertEqual(self.agent.normalize_lyrics("\n\n"), "")
+
+    def test_strip_musical_directions_basic(self):
+        """Test basic removal of simple musical directions."""
+        lyrics = textwrap.dedent("""
+            [Intro]
+            (Guitar riff)
+            Hello world
+        """).strip()
+        expected = "[Intro]\nHello world"
+        result = self.agent.strip_musical_directions(lyrics).strip()
+        self.assertEqual(result, expected)
+
+    def test_strip_musical_directions_preserves_vocals_with_keywords(self):
+        """Test that background vocals are preserved even if they contain musical keywords."""
+        lyrics = textwrap.dedent("""
+            (Background vocals: heavy breathing over guitar)
+            (Vocals: screaming like a synth)
+            (Guitar solo)
+        """).strip()
+        expected = "(Background vocals: heavy breathing over guitar)\n(Vocals: screaming like a synth)"
+        result = self.agent.strip_musical_directions(lyrics).strip()
+        self.assertEqual(result, expected)
+
+    def test_strip_bracket_musical_directions(self):
+        """Test removal of bracketed musical directions that aren't valid structural markers."""
+        lyrics = textwrap.dedent("""
+            [Guitar distortion kicks in]
+            [Verse 1]
+            Lyrics here
+            [Heavy drums]
+            More lyrics
+        """).strip()
+        expected = "[Verse 1]\nLyrics here\nMore lyrics"
+        result = '\n'.join([l.strip() for l in self.agent.strip_musical_directions(lyrics).split('\n') if l.strip()])
+        self.assertEqual(result, expected)
 
 if __name__ == '__main__':
     unittest.main()
