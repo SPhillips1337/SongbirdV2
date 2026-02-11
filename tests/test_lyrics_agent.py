@@ -3,36 +3,43 @@ from unittest.mock import MagicMock, patch
 import sys
 import os
 
-# Add root directory to sys.path to allow imports from agents
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add root to path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-class TestLyricsAgent(unittest.TestCase):
+class TestLyricsAgentNormalization(unittest.TestCase):
 
     def setUp(self):
-        # Localized mocking to prevent test pollution
-        self.patcher = patch.dict('sys.modules', {
-            'requests': MagicMock(),
+        # Suppress logging during tests
+        import logging
+        logging.getLogger().setLevel(logging.CRITICAL)
+
+        # Patch sys.modules to mock missing dependencies
+        self.modules_patcher = patch.dict(sys.modules, {
             'psycopg2': MagicMock(),
             'langgraph': MagicMock(),
-            'langgraph.graph': MagicMock(),
-            'dotenv': MagicMock()
+            'dotenv': MagicMock(),
+            'requests': MagicMock()
         })
-        self.patcher.start()
-        
-        # Patch internal dependencies
-        self.rag_patcher = patch('agents.lyrics.RAGTool')
-        self.perplexity_patcher = patch('agents.lyrics.PerplexityClient')
-        self.mock_rag = self.rag_patcher.start()
-        self.mock_perplexity = self.perplexity_patcher.start()
-        
-        # Import inside setUp during active patch
+        self.modules_patcher.start()
+
+        # Remove modules from cache to force reload with mocks
+        modules_to_reload = ['agents.lyrics', 'tools.rag', 'tools.perplexity']
+        for mod in modules_to_reload:
+            if mod in sys.modules:
+                del sys.modules[mod]
+
+        # Import the class under test
         from agents.lyrics import LyricsAgent
         self.agent = LyricsAgent()
 
     def tearDown(self):
-        self.perplexity_patcher.stop()
-        self.rag_patcher.stop()
-        self.patcher.stop()
+        self.modules_patcher.stop()
+
+        # Clean up mocked modules from cache
+        modules_to_reload = ['agents.lyrics', 'tools.rag', 'tools.perplexity']
+        for mod in modules_to_reload:
+            if mod in sys.modules:
+                del sys.modules[mod]
 
     def test_normalize_basic(self):
         """Test basic normalization with valid markers and lyrics."""
@@ -92,6 +99,7 @@ class TestLyricsAgent(unittest.TestCase):
 
     def test_remove_invalid_bracketed_directions(self):
         """Test removal of bracketed directions that are not valid markers and contain musical keywords."""
+        # [Heavy Distortion] contains 'distortion' (musical keyword) and no valid marker.
         raw_lyrics = """
         [Verse]
         [Heavy Distortion]
@@ -100,13 +108,26 @@ class TestLyricsAgent(unittest.TestCase):
         expected = "[Verse]\nSinging"
         self.assertEqual(self.agent.normalize_lyrics(raw_lyrics), expected)
 
-    def test_preserve_vocals_with_musical_keywords(self):
-        """Verify preservation of vocals even if they contain musical keywords like 'guitar'."""
+    def test_mixed_content(self):
+        """Test a mix of all cases."""
         raw_lyrics = """
-        (Background vocals: oh yeah)
-        (Background vocals: epic guitar)
+        "
+        [Intro]
+        (Guitar feedback)
+
+        [Verse 1]
+        The sky is blue (so blue)
+        (Oh yeah)
+
+        [Chorus]
+        [Heavy Drums]
+        Sing it loud
+        "
         """
-        expected = "(Background vocals: oh yeah)\n(Background vocals: epic guitar)"
+        # [Heavy Drums] -> 'drums' is not in valid markers, but 'drum' is in musical keywords.
+        # So [Heavy Drums] should be removed.
+
+        expected = "[Intro]\n[Verse 1]\nThe sky is blue (so blue)\n(Oh yeah)\n[Chorus]\nSing it loud"
         self.assertEqual(self.agent.normalize_lyrics(raw_lyrics), expected)
 
     def test_empty_and_whitespace(self):
@@ -114,6 +135,18 @@ class TestLyricsAgent(unittest.TestCase):
         self.assertEqual(self.agent.normalize_lyrics(""), "")
         self.assertEqual(self.agent.normalize_lyrics("   "), "")
         self.assertEqual(self.agent.normalize_lyrics("\n\n"), "")
+
+    def test_preserve_vocal_with_musical_keyword(self):
+        """Test preservation of vocals even if they contain musical keywords."""
+        # 'guitar' is a musical keyword, but 'vocals' is a vocal keyword.
+        # Should be preserved.
+        raw_lyrics = """
+        [Chorus]
+        (Background vocals: epic guitar)
+        (Singing over the bass)
+        """
+        expected = "[Chorus]\n(Background vocals: epic guitar)\n(Singing over the bass)"
+        self.assertEqual(self.agent.normalize_lyrics(raw_lyrics), expected)
 
 if __name__ == '__main__':
     unittest.main()
