@@ -3,21 +3,16 @@ from unittest.mock import MagicMock
 import sys
 import os
 
-# Mock dependencies
+# Mock dependencies BEFORE any imports from agents
 sys.modules['requests'] = MagicMock()
 sys.modules['psycopg2'] = MagicMock()
-# sys.modules['langgraph'] is not needed for LyricsAgent unit test
+sys.modules['tools.rag'] = MagicMock()
+sys.modules['tools.perplexity'] = MagicMock()
 
 # Add root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-try:
-    from agents.lyrics import LyricsAgent
-except ImportError:
-    # Fallback if imports fail
-    sys.modules['tools.rag'] = MagicMock()
-    sys.modules['tools.perplexity'] = MagicMock()
-    from agents.lyrics import LyricsAgent
+from agents.lyrics import LyricsAgent
 
 class TestLyricsAgent(unittest.TestCase):
     def setUp(self):
@@ -42,11 +37,13 @@ class TestLyricsAgent(unittest.TestCase):
         (Background vocals: oh yeah)
         Singing loud
         (I can't stop)
+        (Background vocals: epic guitar)
         """
         expected = """
         (Background vocals: oh yeah)
         Singing loud
         (I can't stop)
+        (Background vocals: epic guitar)
         """
         self.assertEqual(self.agent.strip_musical_directions(lyrics).strip(), expected.strip())
 

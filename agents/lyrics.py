@@ -22,6 +22,10 @@ VALID_MARKERS = [
     'interlude', 'refrain', 'coda', 'solo'
 ]
 
+# Keywords that indicate vocal-related content to preserve
+VOCAL_KEYWORDS = ['vocal', 'sung', 'singing', 'chant', 'ad-lib', 'harmony', 'background']
+
+
 
 class LyricsAgent:
     def __init__(self):
@@ -121,10 +125,13 @@ Begin creative workflow immediately."""
                 if not content:
                     continue
                 
+                # Check if it's explicitly vocal-related
+                is_vocal = any(keyword in content.lower() for keyword in VOCAL_KEYWORDS)
+                
                 # Check if it contains any musical keywords
                 is_musical_direction = any(keyword in content.lower() for keyword in MUSICAL_KEYWORDS)
                 
-                if is_musical_direction:
+                if is_musical_direction and not is_vocal:
                     # Skip this line - it's an instrumental direction
                     continue
             
@@ -138,8 +145,9 @@ Begin creative workflow immediately."""
                 
                 # If it's not a valid marker, check if it contains musical keywords
                 if not is_valid_marker:
+                    is_vocal = any(keyword in content for keyword in VOCAL_KEYWORDS)
                     is_musical_direction = any(keyword in content for keyword in MUSICAL_KEYWORDS)
-                    if is_musical_direction:
+                    if is_musical_direction and not is_vocal:
                         # Skip this line - it's an instrumental direction
                         continue
             
