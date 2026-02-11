@@ -143,9 +143,14 @@ class SongbirdWorkflow:
 
                 try:
                     if audio_path != new_path:
-                        os.rename(audio_path, new_path)
-                        logging.info(f"Renamed {audio_path} to {new_path}")
-                        audio_path = new_path
+                        if not os.path.exists(audio_path):
+                            logging.error(f"Source file does not exist for rename: {audio_path}")
+                        elif os.path.exists(new_path):
+                            logging.warning(f"Target file already exists, skipping rename: {new_path}")
+                        else:
+                            os.rename(audio_path, new_path)
+                            logging.info(f"Renamed {audio_path} to {new_path}")
+                            audio_path = new_path
                 except OSError as e:
                     logging.error(f"Failed to rename file: {e}")
 
@@ -288,6 +293,8 @@ def generate_album_title(genre, theme, direction):
             if (title.startswith('"') and title.endswith('"')) or (title.startswith("'") and title.endswith("'")):
                 title = title[1:-1]
             return title if title else theme
+        else:
+            logging.error(f"Ollama returned non-200 status for album title: {response.status_code}")
     except Exception as e:
         logging.error(f"Error generating album title: {e}")
 
@@ -324,6 +331,8 @@ def generate_song_title(album_name, track_number, genre, theme, direction):
             if (title.startswith('"') and title.endswith('"')) or (title.startswith("'") and title.endswith("'")):
                 title = title[1:-1]
             return title if title else f"Song {track_number}"
+        else:
+            logging.error(f"Ollama returned non-200 status for song title: {response.status_code}")
     except Exception as e:
         logging.error(f"Error generating song title: {e}")
 
