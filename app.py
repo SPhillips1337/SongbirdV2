@@ -5,6 +5,7 @@ import logging
 import requests
 import glob
 import re
+import config
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 
@@ -16,6 +17,8 @@ from agents.music import MusicAgent
 from agents.lyrics import LyricsAgent
 from tools.comfy import ComfyClient
 from config import OLLAMA_BASE_URL, ALBUM_MODEL
+
+SONG_FILENAME_PATTERN = re.compile(r"song_(\d+)_")
 
 class SongbirdWorkflow:
     def __init__(self, output_dir="output"):
@@ -174,7 +177,7 @@ def scan_recent_songs(output_dir, n=3):
     def extract_number(filename):
         # Match "song_" followed by digits and another underscore
         # Actual format is usually: Songbird_song_00040__metadata.txt
-        match = re.search(r"song_(\d+)_", filename)
+        match = SONG_FILENAME_PATTERN.search(filename)
         if match:
             return int(match.group(1))
         return 0
@@ -233,14 +236,13 @@ def generate_next_direction(theme, base_direction, previous_songs_summaries, cur
         "Always include references to progression (e.g., 'continue the wolf saga', 'now the pack unites', 'climactic hunt', 'dawn reflection/finale')."
     )
 
-    prev_songs_text = ""
-    for i, summary in enumerate(previous_songs_summaries):
-        prev_songs_text += (
-            f"Song {summary.get('number', i+1)}: "
-            f"Background: {summary.get('background', 'N/A')} | "
-            f"Key lyrics: {summary.get('lyrics_snippet', 'N/A')[:200]}... | "
-            f"Vibe: {summary.get('musical_direction', 'N/A')}\n"
-        )
+    prev_songs_text = "".join(
+        f"Song {summary.get('number', i+1)}: "
+        f"Background: {summary.get('background', 'N/A')} | "
+        f"Key lyrics: {summary.get('lyrics_snippet', 'N/A')[:200]}... | "
+        f"Vibe: {summary.get('musical_direction', 'N/A')}\n"
+        for i, summary in enumerate(previous_songs_summaries)
+    )
 
     user_prompt = (
         f"Album theme: {theme}\n"
@@ -250,7 +252,7 @@ def generate_next_direction(theme, base_direction, previous_songs_summaries, cur
     )
 
     payload = {
-        "model": ALBUM_MODEL,  # Assuming llama3 or similar is available
+        "model": ALBUM_MODEL,
         "prompt": f"{system_prompt}\n\n{user_prompt}",
         "stream": False
     }
