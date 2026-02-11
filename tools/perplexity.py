@@ -27,7 +27,7 @@ class PerplexityClient:
         }
 
         try:
-            response = requests.post(self.url, json=data, headers=headers)
+            response = requests.post(self.url, json=data, headers=headers, timeout=60)
             response.raise_for_status()
             return response.json()["choices"][0]["message"]["content"]
         except Exception as e:
