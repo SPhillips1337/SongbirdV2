@@ -16,6 +16,8 @@ from agents.music import MusicAgent
 from agents.lyrics import LyricsAgent
 from tools.comfy import ComfyClient
 
+SONG_FILENAME_PATTERN = re.compile(r"song_(\d+)_")
+
 class SongbirdWorkflow:
     def __init__(self, output_dir="output"):
         self.artist_agent = ArtistAgent()
@@ -173,7 +175,7 @@ def scan_recent_songs(output_dir, n=3):
     def extract_number(filename):
         # Match "song_" followed by digits and another underscore
         # Actual format is usually: Songbird_song_00040__metadata.txt
-        match = re.search(r"song_(\d+)_", filename)
+        match = SONG_FILENAME_PATTERN.search(filename)
         if match:
             return int(match.group(1))
         return 0
