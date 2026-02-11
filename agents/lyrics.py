@@ -1,15 +1,15 @@
-import os
 import requests
 import re
 import logging
+from config import OLLAMA_BASE_URL, LYRIC_MODEL
 from tools.rag import RAGTool
 from tools.perplexity import PerplexityClient
 
 
 class LyricsAgent:
     def __init__(self):
-        self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.model = os.getenv("LYRIC_MODEL", "qwen3:14b")
+        self.base_url = OLLAMA_BASE_URL
+        self.model = LYRIC_MODEL
         self.rag = RAGTool()
         self.perplexity = PerplexityClient()
 
