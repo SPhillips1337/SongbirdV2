@@ -10,13 +10,14 @@ class PerplexityClient:
         self.url = self.perplexica_url + "/chat/completions" if self.perplexica_url and not self.api_key else "https://api.perplexity.ai/chat/completions"
 
     def search(self, query, system_prompt=None):
-        if not self.api_key:
+        if not self.api_key and not self.perplexica_url:
             return "Perplexity API key missing."
 
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
         
         data = {
             "model": "sonar", # Updated to current default
