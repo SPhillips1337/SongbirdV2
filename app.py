@@ -270,7 +270,7 @@ def main():
         print(f"Total songs: {args.num_songs}")
 
         # Master Seed Logic for Consistent Audio
-        master_seed = int(time.time())
+        master_seed = int(time.time() * 1000)
         persistent_artist_style = None
         persistent_artist_background = None
 
@@ -306,8 +306,8 @@ def main():
                 artist_background=persistent_artist_background
             )
 
-            # Capture artist info from the first song if not already captured
-            if persistent_artist_style is None:
+            # Capture artist info from the first song if not already captured, but only if successful
+            if persistent_artist_style is None and final_state.get('audio_path') and final_state['audio_path'] != "error":
                 persistent_artist_style = final_state.get("artist_style")
                 persistent_artist_background = final_state.get("artist_background")
                 logging.info(f"Captured Persistent Artist Style: {persistent_artist_style}")
