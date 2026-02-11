@@ -98,6 +98,12 @@ Begin creative workflow immediately."""
             'fade', 'echo', 'delay', 'chorus effect', 'flanger', 'phaser'
         ]
         
+        # Keywords that indicate vocal-related lines (should be preserved)
+        vocal_keywords = [
+            'vocal', 'singing', 'ad-lib', 'harmony', 'background', 'verse',
+            'chorus', 'hook', 'bridge', 'outro', 'intro', 'ooh', 'aah', 'yeah'
+        ]
+        
         # Valid ACE-Step structural markers (case-insensitive)
         valid_markers = [
             'intro', 'verse', 'chorus', 'bridge', 'outro', 'drop', 
@@ -120,10 +126,13 @@ Begin creative workflow immediately."""
                 if not content:
                     continue
                 
+                # Check if it's explicitly vocal-related
+                is_vocal = any(keyword in content.lower() for keyword in vocal_keywords)
+                
                 # Check if it contains any musical keywords
                 is_musical_direction = any(keyword in content.lower() for keyword in musical_keywords)
                 
-                if is_musical_direction:
+                if is_musical_direction and not is_vocal:
                     # Skip this line - it's an instrumental direction
                     continue
             

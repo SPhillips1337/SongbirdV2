@@ -3,28 +3,36 @@ from unittest.mock import MagicMock, patch
 import sys
 import os
 
-# Add root to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add root directory to sys.path to allow imports from agents
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Mock external dependencies that might not be installed or need isolation
-sys.modules['psycopg2'] = MagicMock()
-sys.modules['langgraph'] = MagicMock()
-sys.modules['dotenv'] = MagicMock()
-sys.modules['requests'] = MagicMock()
-
-# Now import the class under test
-from agents.lyrics import LyricsAgent
-
-class TestLyricsAgentNormalization(unittest.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        # Suppress logging during tests
-        import logging
-        logging.getLogger().setLevel(logging.CRITICAL)
+class TestLyricsAgent(unittest.TestCase):
 
     def setUp(self):
+        # Localized mocking to prevent test pollution
+        self.patcher = patch.dict('sys.modules', {
+            'requests': MagicMock(),
+            'psycopg2': MagicMock(),
+            'langgraph': MagicMock(),
+            'langgraph.graph': MagicMock(),
+            'dotenv': MagicMock()
+        })
+        self.patcher.start()
+        
+        # Patch internal dependencies
+        self.rag_patcher = patch('agents.lyrics.RAGTool')
+        self.perplexity_patcher = patch('agents.lyrics.PerplexityClient')
+        self.mock_rag = self.rag_patcher.start()
+        self.mock_perplexity = self.perplexity_patcher.start()
+        
+        # Import inside setUp during active patch
+        from agents.lyrics import LyricsAgent
         self.agent = LyricsAgent()
+
+    def tearDown(self):
+        self.perplexity_patcher.stop()
+        self.rag_patcher.stop()
+        self.patcher.stop()
 
     def test_normalize_basic(self):
         """Test basic normalization with valid markers and lyrics."""
@@ -84,7 +92,6 @@ class TestLyricsAgentNormalization(unittest.TestCase):
 
     def test_remove_invalid_bracketed_directions(self):
         """Test removal of bracketed directions that are not valid markers and contain musical keywords."""
-        # [Heavy Distortion] contains 'distortion' (musical keyword) and no valid marker.
         raw_lyrics = """
         [Verse]
         [Heavy Distortion]
@@ -93,26 +100,13 @@ class TestLyricsAgentNormalization(unittest.TestCase):
         expected = "[Verse]\nSinging"
         self.assertEqual(self.agent.normalize_lyrics(raw_lyrics), expected)
 
-    def test_mixed_content(self):
-        """Test a mix of all cases."""
+    def test_preserve_vocals_with_musical_keywords(self):
+        """Verify preservation of vocals even if they contain musical keywords like 'guitar'."""
         raw_lyrics = """
-        "
-        [Intro]
-        (Guitar feedback)
-
-        [Verse 1]
-        The sky is blue (so blue)
-        (Oh yeah)
-
-        [Chorus]
-        [Heavy Drums]
-        Sing it loud
-        "
+        (Background vocals: oh yeah)
+        (Background vocals: epic guitar)
         """
-        # [Heavy Drums] -> 'drums' is not in valid markers, but 'drum' is in musical keywords.
-        # So [Heavy Drums] should be removed.
-
-        expected = "[Intro]\n[Verse 1]\nThe sky is blue (so blue)\n(Oh yeah)\n[Chorus]\nSing it loud"
+        expected = "(Background vocals: oh yeah)\n(Background vocals: epic guitar)"
         self.assertEqual(self.agent.normalize_lyrics(raw_lyrics), expected)
 
     def test_empty_and_whitespace(self):
