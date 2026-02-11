@@ -1,31 +1,15 @@
-import unittest
-from unittest.mock import patch, MagicMock
-import sys
 import os
 import re
 import shutil
 import tempfile
-
-# Mock ALL potentially missing dependencies before any imports
-mock_modules = [
-    'langgraph',
-    'langgraph.graph',
-    'psycopg2',
-    'requests',
-    'agents.artist',
-    'agents.music',
-    'agents.lyrics',
-    'tools.comfy',
-    'tools.rag'
-]
-
-for module in mock_modules:
-    sys.modules[module] = MagicMock()
+import unittest
+from unittest.mock import patch, MagicMock
+import sys
 
 # Add root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app import scan_recent_songs
+from tools.metadata import scan_recent_songs
 
 class TestScanRecentSongs(unittest.TestCase):
     def setUp(self):
