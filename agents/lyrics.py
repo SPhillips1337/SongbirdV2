@@ -1,9 +1,32 @@
 import requests
-import re
 import logging
 from config import OLLAMA_BASE_URL, LYRIC_MODEL
 from tools.rag import RAGTool
 from tools.perplexity import PerplexityClient
+
+# Keywords that indicate instrumental/musical directions (not sung vocals)
+MUSICAL_KEYWORDS = [
+    'guitar', 'drum', 'bass', 'riff', 'solo', 'synth', 'piano', 'keys',
+    'reverb', 'distortion', 'atmospheric', 'shredding', 'face-melting',
+    'crushing', 'pounding', 'grunty', 'snare', 'kick', 'cymbal',
+    'trumpet', 'sax', 'strings', 'orchestra', 'instrumental', 'beat',
+    'melody', 'chord', 'note', 'tempo', 'rhythm', 'percussion',
+    'fade', 'echo', 'delay', 'chorus effect', 'flanger', 'phaser'
+]
+
+# Keywords that indicate vocal-related lines (should be preserved)
+VOCAL_KEYWORDS = [
+    'vocal', 'vocals', 'singing', 'ad-lib', 'harmony', 'background', 'verse',
+    'chorus', 'hook', 'bridge', 'outro', 'intro', 'ooh', 'aah', 'yeah',
+    'voice', 'sung', 'choir', 'backing', 'na', 'la', 'da', 'whoa', 'oh'
+]
+
+# Valid ACE-Step structural markers (case-insensitive)
+VALID_MARKERS = [
+    'intro', 'verse', 'chorus', 'bridge', 'outro', 'drop',
+    'build-up', 'breakdown', 'pre-chorus', 'hook', 'instrumental break',
+    'interlude', 'refrain', 'coda', 'solo'
+]
 
 
 class LyricsAgent:
@@ -88,23 +111,6 @@ Begin creative workflow immediately."""
         - Square bracket instrumental markers like "[Guitar distortion kicks in]"
         - Empty parentheses "()"
         """
-        # Keywords that indicate instrumental/musical directions (not sung vocals)
-        musical_keywords = [
-            'guitar', 'drum', 'bass', 'riff', 'solo', 'synth', 'piano', 'keys',
-            'reverb', 'distortion', 'atmospheric', 'shredding', 'face-melting',
-            'crushing', 'pounding', 'grunty', 'snare', 'kick', 'cymbal',
-            'trumpet', 'sax', 'strings', 'orchestra', 'instrumental', 'beat',
-            'melody', 'chord', 'note', 'tempo', 'rhythm', 'percussion',
-            'fade', 'echo', 'delay', 'chorus effect', 'flanger', 'phaser'
-        ]
-        
-        # Valid ACE-Step structural markers (case-insensitive)
-        valid_markers = [
-            'intro', 'verse', 'chorus', 'bridge', 'outro', 'drop', 
-            'build-up', 'breakdown', 'pre-chorus', 'hook', 'instrumental break',
-            'interlude', 'refrain', 'coda', 'solo'
-        ]
-        
         lines = lyrics.split('\n')
         filtered_lines = []
         
@@ -119,11 +125,21 @@ Begin creative workflow immediately."""
                 # Remove empty parentheses
                 if not content:
                     continue
+
+                # Explicitly preserve background vocals even if they contain keywords
+                # Common variations: (Background vocals: ...), (Vocals: ...)
+                lower_content = content.lower()
+                if lower_content.startswith("background vocals") or lower_content.startswith("vocals"):
+                    filtered_lines.append(line)
+                    continue
+                
+                # Check if it's explicitly vocal-related
+                is_vocal = any(keyword in lower_content for keyword in VOCAL_KEYWORDS)
                 
                 # Check if it contains any musical keywords
-                is_musical_direction = any(keyword in content.lower() for keyword in musical_keywords)
+                is_musical_direction = any(keyword in lower_content for keyword in MUSICAL_KEYWORDS)
                 
-                if is_musical_direction:
+                if is_musical_direction and not is_vocal:
                     # Skip this line - it's an instrumental direction
                     continue
             
@@ -133,12 +149,13 @@ Begin creative workflow immediately."""
                 content = stripped[1:-1].strip().lower()
                 
                 # Check if it's a valid structural marker
-                is_valid_marker = any(marker in content for marker in valid_markers)
+                is_valid_marker = any(marker in content for marker in VALID_MARKERS)
                 
                 # If it's not a valid marker, check if it contains musical keywords
                 if not is_valid_marker:
-                    is_musical_direction = any(keyword in content for keyword in musical_keywords)
-                    if is_musical_direction:
+                    is_vocal = any(keyword in content for keyword in VOCAL_KEYWORDS)
+                    is_musical_direction = any(keyword in content for keyword in MUSICAL_KEYWORDS)
+                    if is_musical_direction and not is_vocal:
                         # Skip this line - it's an instrumental direction
                         continue
             
@@ -158,6 +175,9 @@ Begin creative workflow immediately."""
         4. Removes empty lines.
         5. Preserves genuine background vocals in parentheses.
         """
+        # Strip whitespace first
+        lyrics = lyrics.strip()
+
         # Strip surrounding quotes if the LLM output was wrapped in them
         if (lyrics.startswith('"') and lyrics.endswith('"')) or (lyrics.startswith("'") and lyrics.endswith("'")):
             lyrics = lyrics[1:-1].strip()

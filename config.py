@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Ollama Configuration
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -43,3 +47,6 @@ ARTIST_STYLES = {
     "AMBIENT": "Brian Eno",
     "PHONK": "Kordhell"
 }
+
+# Default artist style when genre is not found in ARTIST_STYLES
+DEFAULT_ARTIST_STYLE = "Adele"

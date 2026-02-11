@@ -1,6 +1,6 @@
 import requests
 import logging
-from config import ARTIST_STYLES, OLLAMA_BASE_URL, ARTIST_MODEL
+from config import ARTIST_STYLES, OLLAMA_BASE_URL, ARTIST_MODEL, DEFAULT_ARTIST_STYLE
 
 
 class ArtistAgent:
@@ -38,4 +38,4 @@ class ArtistAgent:
     def select_artist_style(self, genre, user_direction=None):
         # We could use an LLM here for more dynamic style selection based on direction,
         # but for now, we'll stick to the mapping or a default.
-        return ARTIST_STYLES.get(genre.upper(), "Adele")
+        return ARTIST_STYLES.get(genre.upper(), DEFAULT_ARTIST_STYLE)
