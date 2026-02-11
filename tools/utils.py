@@ -1,5 +1,6 @@
 import re
 import logging
+import os
 
 def sanitize_input(text, max_length=1000):
     """
@@ -19,3 +20,32 @@ def sanitize_input(text, max_length=1000):
         sanitized = sanitized[:max_length]
     
     return sanitized.strip()
+
+def sanitize_filename(name):
+    """
+    Sanitizes a string to be safe for use as a filename or directory name.
+    """
+    if not name:
+        return "untitled"
+
+    # Remove invalid characters for filenames
+    # Explicitly remove path separators to prevent directory traversal
+    s = name.replace(os.sep, '').replace(os.altsep or '', '')
+
+    # Remove filesystem reserved characters
+    s = re.sub(r'[<>:"/\\|?*]', '', s)
+    s = s.strip().replace(' ', '_')
+
+    # Keep only alphanumeric, underscore, hyphen, dot
+    s = re.sub(r'[^\w\.-]', '', s)
+
+    # Remove leading/trailing dots to prevent hiding files or directory traversal
+    s = s.strip('.')
+
+    # Limit length
+    s = s[:100]
+
+    if not s:
+        return "untitled"
+
+    return s

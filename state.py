@@ -13,3 +13,6 @@ class SongState(TypedDict):
     audio_path: Optional[str]
     research_notes: Optional[str]
     history: List[dict]
+    song_title: Optional[str]
+    album_name: Optional[str]
+    track_number: Optional[int]

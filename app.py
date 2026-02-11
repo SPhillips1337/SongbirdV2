@@ -17,7 +17,7 @@ from agents.music import MusicAgent
 from agents.lyrics import LyricsAgent
 from tools.comfy import ComfyClient
 from tools.metadata import scan_recent_songs
-from tools.utils import sanitize_input
+from tools.utils import sanitize_input, sanitize_filename
 
 SONG_FILENAME_PATTERN = re.compile(r"song_(\d+)_")
 
@@ -47,6 +47,11 @@ class SongbirdWorkflow:
         
         self.app = workflow.compile()
         
+    def set_output_dir(self, output_dir):
+        """Updates the output directory for the workflow."""
+        self.comfy.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+
     def normalize_keyscale(self, keyscale_str):
         """Normalizes keyscale string for ComfyUI validation.
         Expected format: '{Note} {major/minor}' (e.g., 'C major', 'F# minor')
@@ -108,12 +113,18 @@ class SongbirdWorkflow:
         # Use seed if provided (for consistent audio generation)
         seed = state.get("seed")
 
+        filename_prefix = f"{state['artist_name']}_song"
+        # Use song title and track number for clean filename
+        if state.get("track_number") and state.get("song_title"):
+            safe_title = sanitize_filename(state["song_title"])
+            filename_prefix = f"{state['track_number']:02d}_{safe_title}"
+
         result = self.comfy.submit_prompt(
             state["cleaned_lyrics"], 
             tags=tags,
             bpm=bpm,
             keyscale=keyscale,
-            filename_prefix=f"{state['artist_name']}_song",
+            filename_prefix=filename_prefix,
             seed=seed
         )
 
@@ -121,13 +132,35 @@ class SongbirdWorkflow:
             prompt_id = result["prompt_id"]
             logging.info(f"Audio generation started. Prompt ID: {prompt_id}")
             audio_path = self.comfy.wait_and_download_output(prompt_id)
+
+            # Rename file to remove ComfyUI suffix if needed
+            if audio_path and state.get("track_number") and state.get("song_title"):
+                dir_name = os.path.dirname(audio_path)
+                ext = os.path.splitext(audio_path)[1]
+                safe_title = sanitize_filename(state["song_title"])
+                new_filename = f"{state['track_number']:02d}_{safe_title}{ext}"
+                new_path = os.path.join(dir_name, new_filename)
+
+                try:
+                    if audio_path != new_path:
+                        if not os.path.exists(audio_path):
+                            logging.error(f"Source file does not exist for rename: {audio_path}")
+                        elif os.path.exists(new_path):
+                            logging.warning(f"Target file already exists, skipping rename: {new_path}")
+                        else:
+                            os.rename(audio_path, new_path)
+                            logging.info(f"Renamed {audio_path} to {new_path}")
+                            audio_path = new_path
+                except OSError as e:
+                    logging.error(f"Failed to rename file: {e}")
+
             state["audio_path"] = audio_path
         else:
             state["audio_path"] = "error"
 
         return state
 
-    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None):
+    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None, song_title=None, album_name=None, track_number=None):
         initial_state = {
             "genre": genre,
             "user_direction": user_direction,
@@ -140,7 +173,10 @@ class SongbirdWorkflow:
             "cleaned_lyrics": None,
             "audio_path": None,
             "research_notes": None,
-            "history": []
+            "history": [],
+            "song_title": song_title,
+            "album_name": album_name,
+            "track_number": track_number
         }
         final_state = self.app.invoke(initial_state)
         self.save_metadata(final_state)
@@ -158,6 +194,8 @@ class SongbirdWorkflow:
 
         content = [
             f"Artist: {state['artist_name']}",
+            f"Album: {state.get('album_name', 'N/A')}",
+            f"Song Title: {state.get('song_title', 'N/A')}",
             f"Background: {state['artist_background']}",
             f"Genre: {state['genre']}",
             f"Style (Reference): {state['artist_style']}",
@@ -226,6 +264,80 @@ def generate_next_direction(theme, base_direction, previous_songs_summaries, cur
         # Graceful fallback if Ollama fails or times out
         return f"{base_direction} {theme}. Continue the story (Song {current_song_index}/{total_songs})."
 
+def generate_album_title(genre, theme, direction):
+    """
+    Generates a creative album title using Ollama.
+    """
+    prompt = (
+        f"Generate a creative, short (3-5 words) album title for a {genre} album.\n"
+        f"Theme: {theme}\n"
+        f"Style/Direction: {direction}\n"
+        "Output ONLY the album title, nothing else. Do not use quotes."
+    )
+
+    payload = {
+        "model": ALBUM_MODEL,
+        "prompt": prompt,
+        "stream": False
+    }
+
+    try:
+        response = requests.post(
+            f"{OLLAMA_BASE_URL}/api/generate",
+            json=payload,
+            timeout=30
+        )
+        if response.status_code == 200:
+            title = response.json().get("response", "").strip()
+            # Remove quotes if present
+            if (title.startswith('"') and title.endswith('"')) or (title.startswith("'") and title.endswith("'")):
+                title = title[1:-1]
+            return title if title else theme
+        else:
+            logging.error(f"Ollama returned non-200 status for album title: {response.status_code}")
+    except Exception as e:
+        logging.error(f"Error generating album title: {e}")
+
+    return theme
+
+def generate_song_title(album_name, track_number, genre, theme, direction):
+    """
+    Generates a creative song title using Ollama.
+    """
+    prompt = (
+        f"Generate a creative song title for track #{track_number} of the album '{album_name}'.\n"
+        f"Genre: {genre}\n"
+        f"Album Theme: {theme}\n"
+        f"Song Direction: {direction}\n"
+        "The title should be cohesive with the album concept.\n"
+        "Output ONLY the song title, nothing else. Do not use quotes."
+    )
+
+    payload = {
+        "model": ALBUM_MODEL,
+        "prompt": prompt,
+        "stream": False
+    }
+
+    try:
+        response = requests.post(
+            f"{OLLAMA_BASE_URL}/api/generate",
+            json=payload,
+            timeout=30
+        )
+        if response.status_code == 200:
+            title = response.json().get("response", "").strip()
+            # Remove quotes if present
+            if (title.startswith('"') and title.endswith('"')) or (title.startswith("'") and title.endswith("'")):
+                title = title[1:-1]
+            return title if title else f"Song {track_number}"
+        else:
+            logging.error(f"Ollama returned non-200 status for song title: {response.status_code}")
+    except Exception as e:
+        logging.error(f"Error generating song title: {e}")
+
+    return f"Song {track_number}"
+
 
 def main():
     parser = argparse.ArgumentParser(description="Songbird: AI Song Generation Agent")
@@ -237,6 +349,7 @@ def main():
     # Album mode arguments
     parser.add_argument("--album", action="store_true", help="Enable album mode")
     parser.add_argument("--theme", type=str, help="Album theme (required if --album is used)")
+    parser.add_argument("--album-name", type=str, help="Album name (optional, auto-generated if not provided)")
     parser.add_argument("--num-songs", type=int, default=6, help="Number of songs for the album (default: 6)")
     parser.add_argument("--base-direction", type=str, default="", help="Shared constraints for every song")
 
@@ -266,8 +379,20 @@ def main():
     flow = SongbirdWorkflow(output_dir=args.output)
 
     if args.album:
-        print(f"Starting Album Generation Mode: '{args.theme}'")
+        # Determine album name
+        album_name = args.album_name
+        if not album_name:
+            print("Auto-generating album title...")
+            album_name = generate_album_title(args.genre, args.theme, args.base_direction)
+
+        print(f"Starting Album Generation Mode: '{album_name}' (Theme: '{args.theme}')")
         print(f"Total songs: {args.num_songs}")
+
+        # Create album output directory
+        safe_album_name = sanitize_filename(album_name)
+        album_output_dir = os.path.join(args.output, safe_album_name)
+        logging.info(f"Album output directory: {album_output_dir}")
+        flow.set_output_dir(album_output_dir)
 
         # Master Seed Logic for Consistent Audio
         master_seed = int(time.time() * 1000)
@@ -279,13 +404,17 @@ def main():
         for i in range(1, args.num_songs + 1):
             print(f"\n--- Generating Song {i}/{args.num_songs} ---")
 
+            # Generate song title
+            song_title = generate_song_title(album_name, i, args.genre, args.theme, args.base_direction)
+            print(f"Title: {song_title}")
+
             if i == 1:
                 # First song direction
                 current_direction = f"{args.base_direction} Start the album saga: {args.theme}. Begin with the awakening/escape/origin story."
             else:
                 # Subsequent songs: get context from previous songs
                 print("Retrieving context from previous songs...")
-                recent_summaries = scan_recent_songs(args.output, n=3)
+                recent_summaries = scan_recent_songs(album_output_dir, n=3)
                 current_direction = generate_next_direction(
                     args.theme,
                     args.base_direction,
@@ -303,7 +432,10 @@ def main():
                 current_direction,
                 seed=master_seed,
                 artist_style=persistent_artist_style,
-                artist_background=persistent_artist_background
+                artist_background=persistent_artist_background,
+                song_title=song_title,
+                album_name=album_name,
+                track_number=i
             )
 
             # Capture artist info from the first song if not already captured, but only if successful

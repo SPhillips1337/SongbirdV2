@@ -84,6 +84,7 @@ Goal: Produce unique, high-quality, raw, and 'street' lyrics for a {state['genre
 Artist: {state['artist_name']}
 Background: {state['artist_background']}
 Style: {state['artist_style']}
+Song Title: {state.get('song_title', 'Untitled')}
 Musical Direction: {state.get('musical_direction', {})}
 User Direction (High Priority): {state.get('user_direction', 'No specific direction.')}
 Research Notes: {research_notes}

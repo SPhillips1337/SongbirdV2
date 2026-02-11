@@ -13,13 +13,23 @@ def scan_recent_songs(output_dir, n=3):
     files = glob.glob(os.path.join(output_dir, "*_metadata.txt"))
 
     # Extract song number from filename
-    # Assuming filename format: Songbird_song_{number}__metadata.txt
+    # Legacy format: Songbird_song_{number}__metadata.txt
+    # New format: {number}_{title}_metadata.txt
     def extract_number(filename):
-        # Match "song_" followed by digits and another underscore
-        # Actual format is usually: Songbird_song_00040__metadata.txt
-        match = re.search(r"song_(\d+)_", filename)
-        if match:
-            return int(match.group(1))
+        base = os.path.basename(filename)
+
+        # Try new format: Starts with digits followed by underscore
+        # e.g., "01_Song_Title_metadata.txt" -> 1
+        match_new = re.match(r"^(\d+)_", base)
+        if match_new:
+            return int(match_new.group(1))
+
+        # Try legacy format: Contains "song_{digits}_"
+        # e.g., "Songbird_song_00040__metadata.txt" -> 40
+        match_old = re.search(r"song_(\d+)_", base)
+        if match_old:
+            return int(match_old.group(1))
+
         return 0
 
     # Use heapq.nlargest for better performance: O(N log K) vs O(N log N)
