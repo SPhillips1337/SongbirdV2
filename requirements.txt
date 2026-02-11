@@ -1,0 +1,5 @@
+requests==2.31.0
+python-dotenv==1.0.1
+langgraph==0.2.59
+langchain-core==0.3.29
+psycopg2-binary==2.9.10

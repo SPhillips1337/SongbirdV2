@@ -214,6 +214,25 @@ def generate_next_direction(theme, base_direction, previous_songs_summaries, cur
         # Graceful fallback if Ollama fails or times out
         return f"{base_direction} {theme}. Continue the story (Song {current_song_index}/{total_songs})."
 
+def sanitize_input(text, max_length=500):
+    """
+    Sanitizes user input to prevent prompt injection attacks.
+    Removes potentially dangerous characters and limits length.
+    """
+    if not text:
+        return ""
+    
+    # Remove control characters and limit length
+    sanitized = text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+    sanitized = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', sanitized)
+    
+    # Limit length to prevent excessively long inputs
+    if len(sanitized) > max_length:
+        logging.warning(f"Input truncated from {len(sanitized)} to {max_length} characters")
+        sanitized = sanitized[:max_length]
+    
+    return sanitized.strip()
+
 def main():
     parser = argparse.ArgumentParser(description="Songbird: AI Song Generation Agent")
     parser.add_argument("--genre", type=str, default="POP", help="Song genre (default: POP)")
@@ -231,6 +250,20 @@ def main():
 
     if args.album and not args.theme:
         parser.error("--theme is required when --album is used.")
+
+    # Validate genre against known genres
+    valid_genres = list(config.MUSIC_PROMPTS.keys())
+    if args.genre.upper() not in valid_genres:
+        logging.warning(f"Unknown genre '{args.genre}'. Valid genres: {', '.join(valid_genres)}")
+        logging.warning(f"Falling back to default genre: POP")
+        args.genre = "POP"
+
+    # Sanitize user inputs to prevent prompt injection
+    if args.album and args.theme:
+        args.theme = sanitize_input(args.theme)
+    if args.base_direction:
+        args.base_direction = sanitize_input(args.base_direction)
+    args.direction = sanitize_input(args.direction)
 
     # Configure logging
     log_level = logging.INFO if args.verbose else logging.WARNING

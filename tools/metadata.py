@@ -2,15 +2,17 @@ import os
 import glob
 import re
 import logging
+import heapq
 
 def scan_recent_songs(output_dir, n=3):
     """
     Scans the output directory for recent song metadata files.
-    Sorts by the song number in the filename and returns summaries of the last n songs.
+    Returns summaries of the last n songs by song number.
+    Uses heapq.nlargest for O(N log K) complexity instead of O(N log N).
     """
     files = glob.glob(os.path.join(output_dir, "*_metadata.txt"))
 
-    # Sort files by the numeric part in the filename
+    # Extract song number from filename
     # Assuming filename format: Songbird_song_{number}__metadata.txt
     def extract_number(filename):
         # Match "song_" followed by digits and another underscore
@@ -20,8 +22,9 @@ def scan_recent_songs(output_dir, n=3):
             return int(match.group(1))
         return 0
 
-    sorted_files = sorted(files, key=extract_number)
-    recent_files = sorted_files[-n:] if n > 0 else []
+    # Use heapq.nlargest for better performance: O(N log K) vs O(N log N)
+    # Note: nlargest returns in descending order, so we reverse to get ascending
+    recent_files = list(reversed(heapq.nlargest(n, files, key=extract_number))) if n > 0 else []
 
     summaries = []
     for filepath in recent_files:
