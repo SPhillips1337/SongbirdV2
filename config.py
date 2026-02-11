@@ -6,8 +6,8 @@ load_dotenv()
 
 # Ollama Configuration
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-ARTIST_MODEL = os.getenv("ARTIST_MODEL", "qwen3:14b")
-LYRIC_MODEL = os.getenv("LYRIC_MODEL", "qwen3:14b")
+ARTIST_MODEL = os.getenv("ARTIST_MODEL", "llama3")
+LYRIC_MODEL = os.getenv("LYRIC_MODEL", "llama3")
 ALBUM_MODEL = os.getenv("ALBUM_MODEL", "llama3")
 
 # Musical direction prompts by genre

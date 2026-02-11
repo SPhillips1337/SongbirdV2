@@ -29,9 +29,9 @@ class TestPerplexityClient(unittest.TestCase):
         # Call the method
         self.client.search("test query")
 
-        # Verify that requests.post was called with timeout=120
+        # Verify that requests.post was called with timeout=240
         args, kwargs = mock_post.call_args
-        self.assertEqual(kwargs['timeout'], 120, "Timeout should be 120 seconds")
+        self.assertEqual(kwargs['timeout'], 240, "Timeout should be 240 seconds")
 
     @patch('requests.post')
     def test_perplexica_search(self, mock_post):
