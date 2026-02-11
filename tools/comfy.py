@@ -11,12 +11,13 @@ class ComfyClient:
         self.timeout = timeout
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird"):
+    def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird", seed=None):
         # ACE Step 1.5 Workflow structure from audio_ace_step_1_5_checkpoint.json
+        generation_seed = seed if seed is not None else int(time.time())
         prompt = {
             "3": {
                 "inputs": {
-                    "seed": int(time.time()),
+                    "seed": generation_seed,
                     "steps": 8,
                     "cfg": 1,
                     "sampler_name": "euler",
@@ -53,7 +54,7 @@ class ComfyClient:
                 "inputs": {
                     "tags": tags,
                     "lyrics": lyrics,
-                    "seed": int(time.time()),
+                    "seed": generation_seed,
                     "bpm": bpm,
                     "duration": duration,
                     "timesignature": "4",
