@@ -10,6 +10,7 @@ from langgraph.graph import StateGraph, END
 
 load_dotenv()
 
+from config import OLLAMA_BASE_URL, ALBUM_MODEL
 from state import SongState
 from agents.artist import ArtistAgent
 from agents.music import MusicAgent
@@ -249,14 +250,14 @@ def generate_next_direction(theme, base_direction, previous_songs_summaries, cur
     )
 
     payload = {
-        "model": "llama3",  # Assuming llama3 or similar is available
+        "model": ALBUM_MODEL,  # Assuming llama3 or similar is available
         "prompt": f"{system_prompt}\n\n{user_prompt}",
         "stream": False
     }
 
     try:
         response = requests.post(
-            "http://localhost:11434/api/generate", 
+            f"{OLLAMA_BASE_URL}/api/generate",
             json=payload,
             timeout=120 # Prevent indefinite hangs
         )
