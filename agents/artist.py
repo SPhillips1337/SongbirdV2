@@ -1,13 +1,13 @@
 import os
 import requests
 import logging
-from config import ARTIST_STYLES, DEFAULT_ARTIST_STYLE
+from config import ARTIST_STYLES, DEFAULT_ARTIST_STYLE, OLLAMA_BASE_URL, ARTIST_MODEL
 
 
 class ArtistAgent:
     def __init__(self):
-        self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.model = os.getenv("ARTIST_MODEL", "qwen3:14b")
+        self.base_url = OLLAMA_BASE_URL
+        self.model = ARTIST_MODEL
 
     def generate_persona(self, genre, user_direction=None):
         prompt = f"""Generate a detailed character profile for a {genre} song protagonist. The persona should be a woman in their early 20s to 30s.
