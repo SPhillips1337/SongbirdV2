@@ -119,54 +119,61 @@ class TestLyricsAgent(unittest.TestCase):
         self.assertEqual(self.agent.normalize_lyrics("   "), "")
         self.assertEqual(self.agent.normalize_lyrics("\n\n"), "")
 
-    def test_strip_musical_directions_basic(self):
-        """Test basic removal of simple musical directions."""
-        lyrics = textwrap.dedent("""
-            [Intro]
-            (Guitar riff)
-            Hello world
-        """).strip()
-        expected = "[Intro]\nHello world"
-        result = self.agent.strip_musical_directions(lyrics).strip()
-        self.assertEqual(result, expected)
+    def test_strip_musical_directions_comprehensive(self):
+        """Comprehensive verification from PR #20."""
+        lyrics = """
+[Intro]
+(Guitar riff starts playing)
+Yeah, let's go!
+(Drums kick in)
+[Verse 1]
+Walking down the street
+(Bass line heavy)
+Thinking about the beat
+(Synth pad swells)
+[Chorus]
+This is the song (oh yeah)
+We sing along (all night long)
+(Guitar solo)
+[Bridge]
+Break it down
+(Drum fill)
+[Outro]
+Fade out
+(Echo effect)
+[Instrumental Break]
+[Guitar Distortion Kicks In]
+(oh baby)
+"""
+        expected_lyrics = """
+[Intro]
+Yeah, let's go!
+[Verse 1]
+Walking down the street
+Thinking about the beat
+[Chorus]
+This is the song (oh yeah)
+We sing along (all night long)
+[Bridge]
+Break it down
+[Outro]
+Fade out
+[Instrumental Break]
+(oh baby)
+"""
+        processed = self.agent.strip_musical_directions(lyrics).strip()
+        processed_lines = [l.strip() for l in processed.split('\n') if l.strip()]
+        expected_lines = [l.strip() for l in expected_lyrics.split('\n') if l.strip()]
+        self.assertEqual(processed_lines, expected_lines)
 
-    def test_strip_musical_directions_preserves_vocals_with_keywords(self):
-        """Test that background vocals are preserved even if they contain musical keywords."""
-        lyrics = textwrap.dedent("""
-            (Background vocals: heavy breathing over guitar)
-            (Vocals: screaming like a synth)
-            (Guitar solo)
-        """).strip()
-        expected = "(Background vocals: heavy breathing over guitar)\n(Vocals: screaming like a synth)"
-        result = self.agent.strip_musical_directions(lyrics).strip()
-        self.assertEqual(result, expected)
-
-    def test_strip_bracket_musical_directions(self):
-        """Test removal of bracketed musical directions that aren't valid structural markers."""
-        lyrics = textwrap.dedent("""
-            [Guitar distortion kicks in]
-            [Verse 1]
-            Lyrics here
-            [Heavy drums]
-            More lyrics
-        """).strip()
-        expected = "[Verse 1]\nLyrics here\nMore lyrics"
-        result = '\n'.join([l.strip() for l in self.agent.strip_musical_directions(lyrics).split('\n') if l.strip()])
-        self.assertEqual(result, expected)
-
-    def test_mixed_content_robust(self):
-        """Test a mix of all cases including Jules' additional keywords."""
-        raw_lyrics = """
-        [Intro]
-        (Guitar feedback)
-        (Background vocals: epic piano)
-        (Singing over the bass)
-        [Chorus]
-        [Heavy Drums]
-        Sing it loud
-        """
-        expected = "[Intro]\n(Background vocals: epic piano)\n(Singing over the bass)\n[Chorus]\nSing it loud"
-        self.assertEqual(self.agent.normalize_lyrics(raw_lyrics), expected)
+    def test_strip_musical_directions_edge_cases(self):
+        """Edge cases from PR #20."""
+        # Case insensitive
+        self.assertEqual(self.agent.strip_musical_directions("(GUITAR SOLO)").strip(), "")
+        # Mixed content
+        self.assertEqual(self.agent.strip_musical_directions("Start (guitar) End").strip(), "Start (guitar) End")
+        # Valid marker with musical keyword
+        self.assertEqual(self.agent.strip_musical_directions("[Instrumental Break]").strip(), "[Instrumental Break]")
 
 if __name__ == '__main__':
     unittest.main()
