@@ -15,6 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import app
 from config import ALBUM_MODEL
+from tools.metadata import scan_recent_songs
 
 class TestAlbumMode(unittest.TestCase):
 

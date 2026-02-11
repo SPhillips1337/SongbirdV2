@@ -6,8 +6,6 @@ import requests
 import re
 import config
 from dotenv import load_dotenv
-from langgraph.graph import StateGraph, END
-
 load_dotenv()
 
 from config import OLLAMA_BASE_URL, ALBUM_MODEL
@@ -16,6 +14,7 @@ from agents.artist import ArtistAgent
 from agents.music import MusicAgent
 from agents.lyrics import LyricsAgent
 from tools.comfy import ComfyClient
+from tools.metadata import scan_recent_songs
 
 SONG_FILENAME_PATTERN = re.compile(r"song_(\d+)_")
 
