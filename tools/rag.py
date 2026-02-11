@@ -6,12 +6,6 @@ import logging
 class RAGTool:
     def __init__(self):
         self.lightrag_url = os.getenv("LIGHTRAG_URL", "http://localhost:9621")
-        self.db_params = {
-            "host": os.getenv("POSTGRES_HOST", "localhost"),
-            "database": os.getenv("POSTGRES_DB", "n8n"), # Typical n8n db name
-            "user": os.getenv("POSTGRES_USER", "n8n"),
-            "password": os.getenv("POSTGRES_PASSWORD", "") # Assuming no password for local dev or handle via env
-        }
 
     def query_lightrag(self, query):
         api_key = os.getenv("LIGHTRAG_API_KEY")
