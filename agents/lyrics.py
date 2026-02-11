@@ -16,8 +16,9 @@ MUSICAL_KEYWORDS = [
 
 # Keywords that indicate vocal-related lines (should be preserved)
 VOCAL_KEYWORDS = [
-    'vocal', 'singing', 'ad-lib', 'harmony', 'background', 'verse',
-    'chorus', 'hook', 'bridge', 'outro', 'intro', 'ooh', 'aah', 'yeah'
+    'vocal', 'vocals', 'singing', 'ad-lib', 'harmony', 'background', 'verse',
+    'chorus', 'hook', 'bridge', 'outro', 'intro', 'ooh', 'aah', 'yeah',
+    'voice', 'sung', 'choir', 'backing', 'na', 'la', 'da', 'whoa', 'oh'
 ]
 
 # Valid ACE-Step structural markers (case-insensitive)
@@ -127,15 +128,16 @@ Begin creative workflow immediately."""
 
                 # Explicitly preserve background vocals even if they contain keywords
                 # Common variations: (Background vocals: ...), (Vocals: ...)
-                if content.lower().startswith("background vocals") or content.lower().startswith("vocals"):
+                lower_content = content.lower()
+                if lower_content.startswith("background vocals") or lower_content.startswith("vocals"):
                     filtered_lines.append(line)
                     continue
                 
                 # Check if it's explicitly vocal-related
-                is_vocal = any(keyword in content.lower() for keyword in VOCAL_KEYWORDS)
+                is_vocal = any(keyword in lower_content for keyword in VOCAL_KEYWORDS)
                 
                 # Check if it contains any musical keywords
-                is_musical_direction = any(keyword in content.lower() for keyword in MUSICAL_KEYWORDS)
+                is_musical_direction = any(keyword in lower_content for keyword in MUSICAL_KEYWORDS)
                 
                 if is_musical_direction and not is_vocal:
                     # Skip this line - it's an instrumental direction
@@ -151,8 +153,9 @@ Begin creative workflow immediately."""
                 
                 # If it's not a valid marker, check if it contains musical keywords
                 if not is_valid_marker:
+                    is_vocal = any(keyword in content for keyword in VOCAL_KEYWORDS)
                     is_musical_direction = any(keyword in content for keyword in MUSICAL_KEYWORDS)
-                    if is_musical_direction:
+                    if is_musical_direction and not is_vocal:
                         # Skip this line - it's an instrumental direction
                         continue
             

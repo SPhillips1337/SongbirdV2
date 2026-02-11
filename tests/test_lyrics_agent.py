@@ -154,5 +154,19 @@ class TestLyricsAgent(unittest.TestCase):
         result = '\n'.join([l.strip() for l in self.agent.strip_musical_directions(lyrics).split('\n') if l.strip()])
         self.assertEqual(result, expected)
 
+    def test_mixed_content_robust(self):
+        """Test a mix of all cases including Jules' additional keywords."""
+        raw_lyrics = """
+        [Intro]
+        (Guitar feedback)
+        (Background vocals: epic piano)
+        (Singing over the bass)
+        [Chorus]
+        [Heavy Drums]
+        Sing it loud
+        """
+        expected = "[Intro]\n(Background vocals: epic piano)\n(Singing over the bass)\n[Chorus]\nSing it loud"
+        self.assertEqual(self.agent.normalize_lyrics(raw_lyrics), expected)
+
 if __name__ == '__main__':
     unittest.main()
