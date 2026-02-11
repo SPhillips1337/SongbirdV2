@@ -16,6 +16,7 @@ from agents.music import MusicAgent
 from agents.lyrics import LyricsAgent
 from tools.comfy import ComfyClient
 from tools.metadata import scan_recent_songs
+from tools.utils import sanitize_input
 
 SONG_FILENAME_PATTERN = re.compile(r"song_(\d+)_")
 
@@ -214,24 +215,6 @@ def generate_next_direction(theme, base_direction, previous_songs_summaries, cur
         # Graceful fallback if Ollama fails or times out
         return f"{base_direction} {theme}. Continue the story (Song {current_song_index}/{total_songs})."
 
-def sanitize_input(text, max_length=500):
-    """
-    Sanitizes user input to prevent prompt injection attacks.
-    Removes potentially dangerous characters and limits length.
-    """
-    if not text:
-        return ""
-    
-    # Remove control characters and limit length
-    sanitized = text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
-    sanitized = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', sanitized)
-    
-    # Limit length to prevent excessively long inputs
-    if len(sanitized) > max_length:
-        logging.warning(f"Input truncated from {len(sanitized)} to {max_length} characters")
-        sanitized = sanitized[:max_length]
-    
-    return sanitized.strip()
 
 def main():
     parser = argparse.ArgumentParser(description="Songbird: AI Song Generation Agent")

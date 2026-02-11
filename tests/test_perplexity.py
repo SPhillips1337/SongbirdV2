@@ -29,6 +29,31 @@ class TestPerplexityClient(unittest.TestCase):
         # Call the method
         self.client.search("test query")
 
-        # Verify that requests.post was called with timeout
+        # Verify that requests.post was called with timeout=120
         args, kwargs = mock_post.call_args
-        self.assertIn('timeout', kwargs, "requests.post should be called with a timeout parameter")
+        self.assertEqual(kwargs['timeout'], 120, "Timeout should be 120 seconds")
+
+    @patch('requests.post')
+    def test_perplexica_search(self, mock_post):
+        # Setup mock for Perplexica
+        os.environ["PERPLEXICA_URL"] = "http://localhost:3000"
+        client = PerplexityClient()
+        
+        # Mock response
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"message": "Perplexica result"}
+        mock_post.return_value = mock_response
+
+        # Call search
+        result = client.search("test query")
+        
+        # Verify URL and format
+        self.assertTrue(client.is_perplexica)
+        self.assertIn("/api/search", client.url)
+        self.assertEqual(result, "Perplexica result")
+        
+        # specific request format
+        args, kwargs = mock_post.call_args
+        self.assertIn("focusMode", kwargs['json'])
+        
+        del os.environ["PERPLEXICA_URL"]

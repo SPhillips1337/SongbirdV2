@@ -47,7 +47,7 @@ class PerplexityClient:
             }
 
         try:
-            response = requests.post(self.url, json=data, headers=headers, timeout=60)
+            response = requests.post(self.url, json=data, headers=headers, timeout=120)
             response.raise_for_status()
             
             # Different response formats
