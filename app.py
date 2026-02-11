@@ -233,14 +233,13 @@ def generate_next_direction(theme, base_direction, previous_songs_summaries, cur
         "Always include references to progression (e.g., 'continue the wolf saga', 'now the pack unites', 'climactic hunt', 'dawn reflection/finale')."
     )
 
-    prev_songs_text = ""
-    for i, summary in enumerate(previous_songs_summaries):
-        prev_songs_text += (
-            f"Song {summary.get('number', i+1)}: "
-            f"Background: {summary.get('background', 'N/A')} | "
-            f"Key lyrics: {summary.get('lyrics_snippet', 'N/A')[:200]}... | "
-            f"Vibe: {summary.get('musical_direction', 'N/A')}\n"
-        )
+    prev_songs_text = "".join(
+        f"Song {summary.get('number', i+1)}: "
+        f"Background: {summary.get('background', 'N/A')} | "
+        f"Key lyrics: {summary.get('lyrics_snippet', 'N/A')[:200]}... | "
+        f"Vibe: {summary.get('musical_direction', 'N/A')}\n"
+        for i, summary in enumerate(previous_songs_summaries)
+    )
 
     user_prompt = (
         f"Album theme: {theme}\n"
