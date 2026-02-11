@@ -47,3 +47,6 @@ ARTIST_STYLES = {
     "AMBIENT": "Brian Eno",
     "PHONK": "Kordhell"
 }
+
+# Default artist style when genre is not found in ARTIST_STYLES
+DEFAULT_ARTIST_STYLE = "Adele"
