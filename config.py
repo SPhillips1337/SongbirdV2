@@ -1,9 +1,13 @@
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Ollama Configuration
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-LYRIC_MODEL = os.getenv("LYRIC_MODEL", "qwen3:14b")
 ARTIST_MODEL = os.getenv("ARTIST_MODEL", "qwen3:14b")
+LYRIC_MODEL = os.getenv("LYRIC_MODEL", "qwen3:14b")
 ALBUM_MODEL = os.getenv("ALBUM_MODEL", "llama3")
 
 # Musical direction prompts by genre
@@ -43,3 +47,6 @@ ARTIST_STYLES = {
     "AMBIENT": "Brian Eno",
     "PHONK": "Kordhell"
 }
+
+# Default artist style when genre is not found in ARTIST_STYLES
+DEFAULT_ARTIST_STYLE = "Adele"
