@@ -1,6 +1,6 @@
 import requests
 import logging
-from config import ARTIST_STYLES, OLLAMA_BASE_URL, ARTIST_MODEL
+from config import ARTIST_STYLES, OLLAMA_BASE_URL, ARTIST_MODEL, DEFAULT_ARTIST_STYLE
 
 
 class ArtistAgent:
