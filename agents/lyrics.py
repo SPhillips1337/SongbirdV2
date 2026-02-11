@@ -158,6 +158,7 @@ Begin creative workflow immediately."""
         4. Removes empty lines.
         5. Preserves genuine background vocals in parentheses.
         """
+        lyrics = lyrics.strip()
         # Strip surrounding quotes if the LLM output was wrapped in them
         if (lyrics.startswith('"') and lyrics.endswith('"')) or (lyrics.startswith("'") and lyrics.endswith("'")):
             lyrics = lyrics[1:-1].strip()
