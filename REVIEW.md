@@ -19,7 +19,7 @@ This review covers the `Songbird V2` codebase, focusing on Security, Performance
 **Recommendation:** Create/Update `requirements.txt` with all dependencies.
 
 ### 3. Vulnerability to Prompt Injection
-**Location:** `app.py` (Line 137, `generate_next_direction`)
+**Location:** `app.py` (Line 167)
 **Issue:** User input (`args.theme`, `args.base_direction`) is directly interpolated into the system prompt for the LLM.
 **Impact:** Malicious input could override safety guidelines or repurpose the LLM.
 **Recommendation:** Sanitize input or use a structured prompt template that strictly separates system instructions from user data (though standard LLM APIs often mix them, rigorous delimiting helps).
@@ -36,9 +36,9 @@ This review covers the `Songbird V2` codebase, focusing on Security, Performance
 ### 2. Logic in Entry Point (`app.py`)
 **Location:** `app.py`
 **Issue:** The entry point contains business logic:
-- `normalize_keyscale` (Line 38)
-- `generate_next_direction` (Line 115)
-- `save_metadata` (Line 85)
+- `normalize_keyscale` (Line 48)
+- `generate_next_direction` (Line 167)
+- `save_metadata` (Line 137)
 **Recommendation:** Refactor these into specific agents or utility modules (e.g., `agents/director.py` for album logic, `tools/utils.py` for normalization). `app.py` should only orchestrate.
 
 ### 3. Performance of `scan_recent_songs`
