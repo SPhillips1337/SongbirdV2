@@ -16,3 +16,4 @@ class SongState(TypedDict):
     song_title: Optional[str]
     album_name: Optional[str]
     track_number: Optional[int]
+    vocals: Optional[str]

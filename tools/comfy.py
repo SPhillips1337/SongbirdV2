@@ -11,9 +11,23 @@ class ComfyClient:
         self.timeout = timeout
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird", seed=None, steps=8, cfg=1, sampler_name="euler", scheduler="simple"):
+    def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird", seed=None, steps=8, cfg=1, sampler_name="euler", scheduler="simple", negative_prompt=""):
         # ACE Step 1.5 Workflow structure from audio_ace_step_1_5_checkpoint.json
         generation_seed = seed if seed is not None else int(time.time())
+
+        # Determine negative conditioning source
+        negative_source = ["47", 0]
+        negative_node = None
+        if negative_prompt:
+            negative_source = ["105", 0]
+            negative_node = {
+                "inputs": {
+                    "text": negative_prompt,
+                    "clip": ["97", 1]
+                },
+                "class_type": "CLIPTextEncode"
+            }
+
         prompt = {
             "3": {
                 "inputs": {
@@ -25,7 +39,7 @@ class ComfyClient:
                     "denoise": 1,
                     "model": ["78", 0],
                     "positive": ["94", 0],
-                    "negative": ["47", 0],
+                    "negative": negative_source,
                     "latent_image": ["98", 0]
                 },
                 "class_type": "KSampler"
@@ -92,6 +106,9 @@ class ComfyClient:
                 "class_type": "SaveAudioMP3"
             }
         }
+
+        if negative_node:
+            prompt["105"] = negative_node
 
         try:
             response = requests.post(f"{self.url}/prompt", json={"prompt": prompt}, timeout=self.timeout)

@@ -75,6 +75,7 @@ class TestAlbumConsistency(unittest.TestCase):
     def test_node_generate_audio_uses_seed(self):
         """Test that node_generate_audio passes seed to ComfyClient."""
         state = {
+            "genre": "ROCK",
             "musical_direction": {"tags": "Rock", "bpm": 120, "keyscale": "C major"},
             "cleaned_lyrics": "Test Lyrics",
             "artist_name": "Songbird",

@@ -10,10 +10,11 @@ DURATION_CATEGORIES = {
 }
 
 # Adaptive Inference Settings
+# Note: ACE Step 1.5 Turbo performs best with 'simple' or 'karras' rather than 'normal'.
 AUDIO_SETTINGS = {
-    "ELECTRONIC": {"sampler": "euler", "scheduler": "normal", "genres": ["DUBSTEP", "TECHNO", "ELECTRONIC", "CYBERPUNK", "PHONK", "JINGLE", "LO-FI"]},
+    "ELECTRONIC": {"sampler": "euler", "scheduler": "simple", "genres": ["DUBSTEP", "TECHNO", "ELECTRONIC", "CYBERPUNK", "PHONK", "JINGLE", "LO-FI"]},
     "ORGANIC": {"sampler": "dpmpp_2m_sde", "scheduler": "karras", "genres": ["ROCK", "JAZZ", "ACOUSTIC", "COUNTRY", "R&B", "SOUL", "FUNK", "LATIN", "METAL", "POP", "PUNK", "GRINDCORE", "PROG ROCK", "DOOM METAL", "CLASSICAL"]},
-    "ATMOSPHERIC": {"sampler": "dpmpp_2s_ancestral", "scheduler": "exponential", "genres": ["AMBIENT", "CINEMATIC", "TRANCE"]}
+    "ATMOSPHERIC": {"sampler": "dpmpp_2s_ancestral", "scheduler": "simple", "genres": ["AMBIENT", "CINEMATIC", "TRANCE"]}
 }
 
 class SongParameters(TypedDict):
@@ -71,10 +72,10 @@ def calculate_song_parameters(genre: str, lyrics: str) -> SongParameters:
         duration = 280
 
     # --- 2. Adaptive Inference Settings ---
-    # Default fallback: euler / normal, steps: 32
+    # Default fallback: euler / simple, steps: 8
     sampler = "euler"
-    scheduler = "normal"
-    steps = 32
+    scheduler = "simple"
+    steps = 8
 
     found_audio_settings = False
     for cat_name, settings in AUDIO_SETTINGS.items():
@@ -87,8 +88,8 @@ def calculate_song_parameters(genre: str, lyrics: str) -> SongParameters:
         if found_audio_settings:
             break
 
-    # CFG: User requested ~4.5
-    cfg = 4.5
+    # CFG: Turbo models perform best at 1.0-2.0
+    cfg = 1.5
 
     return {
         "duration": duration,
