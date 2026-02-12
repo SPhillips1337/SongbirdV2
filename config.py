@@ -50,17 +50,3 @@ ARTIST_STYLES = {
 
 # Default artist style when genre is not found in ARTIST_STYLES
 DEFAULT_ARTIST_STYLE = "Adele"
-
-# Genre Duration Logic
-DURATION_CATEGORIES = {
-    "SHORT": {"min": 120, "max": 180, "genres": ["PUNK", "GRINDCORE", "JINGLE", "LO-FI", "PHONK"]},
-    "MEDIUM": {"min": 180, "max": 240, "genres": ["POP", "ROCK", "COUNTRY", "RAP", "DUBSTEP", "R&B", "FUNK", "SOUL", "LATIN", "METAL"]},
-    "LONG": {"min": 240, "max": 320, "genres": ["PROG ROCK", "TRANCE", "CLASSICAL", "AMBIENT", "DOOM METAL", "JAZZ", "CYBERPUNK", "ELECTRONIC", "CINEMATIC"]}
-}
-
-# Adaptive Inference Settings
-AUDIO_SETTINGS = {
-    "ELECTRONIC": {"sampler": "euler", "scheduler": "normal", "genres": ["DUBSTEP", "TECHNO", "ELECTRONIC", "CYBERPUNK", "PHONK", "JINGLE", "LO-FI"]},
-    "ORGANIC": {"sampler": "dpmpp_2m_sde", "scheduler": "karras", "genres": ["ROCK", "JAZZ", "ACOUSTIC", "COUNTRY", "R&B", "SOUL", "FUNK", "LATIN", "METAL", "POP", "PUNK", "GRINDCORE", "PROG ROCK", "DOOM METAL", "CLASSICAL"]},
-    "ATMOSPHERIC": {"sampler": "dpmpp_2s_ancestral", "scheduler": "exponential", "genres": ["AMBIENT", "CINEMATIC", "TRANCE"]}
-}
