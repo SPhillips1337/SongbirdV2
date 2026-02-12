@@ -18,6 +18,7 @@ from agents.lyrics import LyricsAgent
 from tools.comfy import ComfyClient
 from tools.metadata import scan_recent_songs
 from tools.utils import sanitize_input, sanitize_filename
+from tools.audio_engineering import calculate_song_parameters
 
 SONG_FILENAME_PATTERN = re.compile(r"song_(\d+)_")
 
@@ -119,13 +120,22 @@ class SongbirdWorkflow:
             safe_title = sanitize_filename(state["song_title"])
             filename_prefix = f"{state['track_number']:02d}_{safe_title}"
 
+        # Dynamic Audio Engineering
+        params = calculate_song_parameters(state["genre"], state.get("cleaned_lyrics", ""))
+        logging.info(f"Optimizing for [{state['genre']}]: Duration {params['duration']}s, Sampler {params['sampler_name']}, Scheduler {params['scheduler']}")
+
         result = self.comfy.submit_prompt(
             state["cleaned_lyrics"], 
             tags=tags,
             bpm=bpm,
             keyscale=keyscale,
             filename_prefix=filename_prefix,
-            seed=seed
+            seed=seed,
+            duration=params["duration"],
+            steps=params["steps"],
+            cfg=params["cfg"],
+            sampler_name=params["sampler_name"],
+            scheduler=params["scheduler"]
         )
 
         if result and "prompt_id" in result:
