@@ -111,6 +111,24 @@ class SongbirdWorkflow:
             bpm = 120
             keyscale = "C major"
 
+        # Vocal Prompt Injection Logic
+        vocals = state.get("vocals", "auto")
+        negative_prompt = ""
+
+        if vocals == "female":
+            tags = f"(female vocals:1.4), female singer, {tags}"
+            negative_prompt = "male vocals, male voice"
+        elif vocals == "male":
+            tags = f"(male vocals:1.4), male singer, {tags}"
+            negative_prompt = "female vocals, female voice"
+        elif vocals == "instrumental":
+            tags = f"(instrumental:1.5), no vocals, {tags}"
+            negative_prompt = "vocals, voice, singing, lyrics, speech"
+        elif vocals == "duet":
+            tags = f"(duet vocals:1.2), {tags}"
+        elif vocals == "choir":
+            tags = f"(choir vocals:1.2), {tags}"
+
         # Use seed if provided (for consistent audio generation)
         seed = state.get("seed")
 
@@ -135,7 +153,8 @@ class SongbirdWorkflow:
             steps=params["steps"],
             cfg=params["cfg"],
             sampler_name=params["sampler_name"],
-            scheduler=params["scheduler"]
+            scheduler=params["scheduler"],
+            negative_prompt=negative_prompt
         )
 
         if result and "prompt_id" in result:
@@ -170,7 +189,7 @@ class SongbirdWorkflow:
 
         return state
 
-    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None, song_title=None, album_name=None, track_number=None):
+    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None, song_title=None, album_name=None, track_number=None, vocals="auto"):
         initial_state = {
             "genre": genre,
             "user_direction": user_direction,
@@ -186,7 +205,8 @@ class SongbirdWorkflow:
             "history": [],
             "song_title": song_title,
             "album_name": album_name,
-            "track_number": track_number
+            "track_number": track_number,
+            "vocals": vocals
         }
         final_state = self.app.invoke(initial_state)
         self.save_metadata(final_state)
@@ -353,6 +373,7 @@ def main():
     parser = argparse.ArgumentParser(description="Songbird: AI Song Generation Agent")
     parser.add_argument("--genre", type=str, default="POP", help="Song genre (default: POP)")
     parser.add_argument("--direction", type=str, default="A catchy upbeat pop song in the style of Black Pink about freedom with powerful female vocals and a live drummer.", help="Musical direction for the song")
+    parser.add_argument("--vocals", type=str, default="auto", choices=['female', 'male', 'instrumental', 'duet', 'choir', 'auto'], help="Strict vocal control")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--output", type=str, default="output", help="Output directory (default: output)")
 
@@ -445,7 +466,8 @@ def main():
                 artist_background=persistent_artist_background,
                 song_title=song_title,
                 album_name=album_name,
-                track_number=i
+                track_number=i,
+                vocals=args.vocals
             )
 
             # Capture artist info from the first song if not already captured, but only if successful
@@ -463,7 +485,7 @@ def main():
 
     else:
         # Standard single song mode
-        final_state = flow.run(args.genre, args.direction)
+        final_state = flow.run(args.genre, args.direction, vocals=args.vocals)
 
         print("Workflow Complete!")
         if final_state.get('cleaned_lyrics'):
