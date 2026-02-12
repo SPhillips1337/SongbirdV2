@@ -16,10 +16,17 @@ class ComfyClient:
         generation_seed = seed if seed is not None else int(time.time())
 
         # Determine negative conditioning source
+        negative_source = ["47", 0]
+        negative_node = None
         if negative_prompt:
             negative_source = ["105", 0]
-        else:
-            negative_source = ["47", 0]
+            negative_node = {
+                "inputs": {
+                    "text": negative_prompt,
+                    "clip": ["97", 1]
+                },
+                "class_type": "CLIPTextEncode"
+            }
 
         prompt = {
             "3": {
@@ -100,14 +107,8 @@ class ComfyClient:
             }
         }
 
-        if negative_prompt:
-            prompt["105"] = {
-                "inputs": {
-                    "text": negative_prompt,
-                    "clip": ["97", 1]
-                },
-                "class_type": "CLIPTextEncode"
-            }
+        if negative_node:
+            prompt["105"] = negative_node
 
         try:
             response = requests.post(f"{self.url}/prompt", json={"prompt": prompt}, timeout=self.timeout)
