@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import random
 import argparse
 import logging
 import requests
@@ -20,6 +21,74 @@ from tools.metadata import scan_recent_songs
 from tools.utils import sanitize_input, sanitize_filename
 
 SONG_FILENAME_PATTERN = re.compile(r"song_(\d+)_")
+
+def calculate_song_parameters(genre, lyrics):
+    """
+    Dynamically determines song parameters based on genre and lyrics for ACE Step 1.5.
+    """
+    genre_upper = genre.upper().strip()
+
+    # --- 1. Determine Duration ---
+    # Default to Medium range if unsure
+    target_range = config.DURATION_CATEGORIES["MEDIUM"]
+
+    # Check for specific genre match in DURATION_CATEGORIES
+    found_duration_cat = False
+    for cat_name, settings in config.DURATION_CATEGORIES.items():
+        # Check exact match or if genre contains any keyword
+        for g in settings["genres"]:
+            if g in genre_upper:
+                target_range = settings
+                found_duration_cat = True
+                break
+        if found_duration_cat:
+            break
+
+    # Base duration from range
+    base_duration = random.randint(target_range["min"], target_range["max"])
+
+    # Adjust based on Lyrical Density
+    word_count = len(lyrics.split()) if lyrics else 0
+    # Estimate WPM: Rap ~150, others ~100
+    wpm = 150 if "RAP" in genre_upper else 100
+    estimated_duration = int((word_count / wpm) * 60) if word_count > 0 else 0
+
+    # Combine: If lyrics are long, extend duration, but respect soft cap.
+    # We take the larger of base or estimated, to ensure lyrics fit,
+    # but not too long if lyrics are short (keep musical intro/outro).
+    duration = max(base_duration, estimated_duration)
+
+    # Soft Cap at 280s (4m 40s)
+    if duration > 280:
+        duration = 280
+
+    # --- 2. Adaptive Inference Settings ---
+    # Default fallback: euler / normal, steps: 32
+    sampler = "euler"
+    scheduler = "normal"
+    steps = 32
+
+    found_audio_settings = False
+    for cat_name, settings in config.AUDIO_SETTINGS.items():
+        for g in settings["genres"]:
+            if g in genre_upper:
+                sampler = settings["sampler"]
+                scheduler = settings["scheduler"]
+                found_audio_settings = True
+                break
+        if found_audio_settings:
+            break
+
+    # CFG: User requested ~4.5
+    cfg = 4.5
+
+    return {
+        "duration": duration,
+        "steps": steps,
+        "cfg": cfg,
+        "sampler_name": sampler,
+        "scheduler": scheduler
+    }
 
 class SongbirdWorkflow:
     def __init__(self, output_dir="output"):
@@ -119,13 +188,22 @@ class SongbirdWorkflow:
             safe_title = sanitize_filename(state["song_title"])
             filename_prefix = f"{state['track_number']:02d}_{safe_title}"
 
+        # Dynamic Audio Engineering
+        params = calculate_song_parameters(state["genre"], state.get("cleaned_lyrics", ""))
+        logging.info(f"Optimizing for [{state['genre']}]: Duration {params['duration']}s, Sampler {params['sampler_name']}, Scheduler {params['scheduler']}")
+
         result = self.comfy.submit_prompt(
             state["cleaned_lyrics"], 
             tags=tags,
             bpm=bpm,
             keyscale=keyscale,
             filename_prefix=filename_prefix,
-            seed=seed
+            seed=seed,
+            duration=params["duration"],
+            steps=params["steps"],
+            cfg=params["cfg"],
+            sampler_name=params["sampler_name"],
+            scheduler=params["scheduler"]
         )
 
         if result and "prompt_id" in result:
