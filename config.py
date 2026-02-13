@@ -30,3 +30,7 @@ ARTIST_STYLES = load_json_config("artist_styles.json")
 
 # Default artist style when genre is not found in ARTIST_STYLES
 DEFAULT_ARTIST_STYLE = "Adele"
+
+
+# Default negative prompt suffix for high-fidelity audio
+DEFAULT_NEGATIVE_PROMPT_SUFFIX = ", low quality, glitch, distorted"

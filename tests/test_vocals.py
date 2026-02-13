@@ -93,7 +93,7 @@ class TestVocalsCLI(unittest.TestCase):
         negative_prompt = kwargs.get('negative_prompt')
 
         self.assertIn("(female vocals:1.2), female singer,", tags)
-        self.assertEqual(negative_prompt, "male vocals")
+        self.assertEqual(negative_prompt, "male vocals, low quality, glitch, distorted")
 
     def test_vocals_male(self):
         state = {
@@ -115,7 +115,7 @@ class TestVocalsCLI(unittest.TestCase):
         negative_prompt = kwargs.get('negative_prompt')
 
         self.assertIn("(male vocals:1.2), male singer,", tags)
-        self.assertEqual(negative_prompt, "female vocals")
+        self.assertEqual(negative_prompt, "female vocals, low quality, glitch, distorted")
 
     def test_vocals_instrumental(self):
         state = {
@@ -137,7 +137,7 @@ class TestVocalsCLI(unittest.TestCase):
         negative_prompt = kwargs.get('negative_prompt')
 
         self.assertIn("(instrumental:1.2), no vocals,", tags)
-        self.assertEqual(negative_prompt, "vocals, voice, singing, lyrics, speech")
+        self.assertEqual(negative_prompt, "vocals, voice, singing, lyrics, speech, low quality, glitch, distorted")
 
     def test_vocals_duet(self):
         state = {
@@ -164,7 +164,7 @@ class TestVocalsCLI(unittest.TestCase):
         # elif vocals == "duet":
         #    tags = f"(duet vocals:{vocal_strength}), {tags}"
         # Negative prompt is initialized to ""
-        self.assertEqual(negative_prompt, "")
+        self.assertEqual(negative_prompt, "low quality, glitch, distorted")
 
     def test_vocals_auto(self):
         state = {
@@ -186,7 +186,7 @@ class TestVocalsCLI(unittest.TestCase):
         negative_prompt = kwargs.get('negative_prompt')
 
         self.assertEqual(tags, "pop song") # Unchanged
-        self.assertEqual(negative_prompt, "")
+        self.assertEqual(negative_prompt, "low quality, glitch, distorted")
 
 if __name__ == '__main__':
     unittest.main()

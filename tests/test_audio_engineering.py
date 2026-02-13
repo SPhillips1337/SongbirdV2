@@ -33,23 +33,30 @@ class TestAudioEngineering(unittest.TestCase):
         # Electronic
         params = calculate_song_parameters("Dubstep", "lyrics")
         self.assertEqual(params["sampler_name"], "euler")
-        self.assertEqual(params["scheduler"], "simple")
+        self.assertEqual(params["scheduler"], "normal")
         self.assertEqual(params["steps"], 16)
-        self.assertEqual(params["cfg"], 1.0)
+        self.assertEqual(params["cfg"], 1.8)
 
-        # Organic
-        params = calculate_song_parameters("Rock", "lyrics")
+        # Pop (was Organic)
+        params = calculate_song_parameters("Pop", "lyrics")
         self.assertEqual(params["sampler_name"], "dpmpp_2m")
         self.assertEqual(params["scheduler"], "karras")
         self.assertEqual(params["steps"], 20)
-        self.assertEqual(params["cfg"], 1.2)
+        self.assertEqual(params["cfg"], 2.0)
+
+        # Rock (was Organic)
+        params = calculate_song_parameters("Rock", "lyrics")
+        self.assertEqual(params["sampler_name"], "dpmpp_2m")
+        self.assertEqual(params["scheduler"], "karras")
+        self.assertEqual(params["steps"], 25)
+        self.assertEqual(params["cfg"], 2.2)
 
         # Atmospheric
         params = calculate_song_parameters("Ambient", "lyrics")
         self.assertEqual(params["sampler_name"], "euler_ancestral")
         self.assertEqual(params["scheduler"], "simple")
         self.assertEqual(params["steps"], 20)
-        self.assertEqual(params["cfg"], 1.0)
+        self.assertEqual(params["cfg"], 1.5)
 
     def test_word_count_estimation(self):
         # Test large word count affecting duration

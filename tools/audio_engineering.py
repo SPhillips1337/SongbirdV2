@@ -14,24 +14,35 @@ DURATION_CATEGORIES = {
 AUDIO_SETTINGS = {
     "ELECTRONIC": {
         "sampler": "euler",
-        "scheduler": "simple",
+        "scheduler": "normal",
         "steps": 16,
-        "cfg": 1.0,
-        "genres": ["DUBSTEP", "TECHNO", "ELECTRONIC", "CYBERPUNK", "PHONK", "JINGLE", "LO-FI"]
+        "cfg": 1.8,  # Low CFG for clean transients
+        "default_key": "F Minor",  # optimal for sub-bass/kick separation
+        "genres": ["DUBSTEP", "TECHNO", "TRANCE", "HOUSE", "DRUM AND BASS", "ELECTRONIC", "CYBERPUNK", "PHONK", "JINGLE"]
     },
-    "ORGANIC": {
-        "sampler": "dpmpp_2m",
+    "POP": {
+        "sampler": "dpmpp_2m",  # Clean, stable, no robotic fizz
         "scheduler": "karras",
         "steps": 20,
-        "cfg": 1.2,
-        "genres": ["ROCK", "JAZZ", "ACOUSTIC", "COUNTRY", "R&B", "SOUL", "FUNK", "LATIN", "METAL", "POP", "PUNK", "GRINDCORE", "PROG ROCK", "DOOM METAL", "CLASSICAL"]
+        "cfg": 2.0,
+        "default_key": "G Minor",  # Industry standard for modern pop clarity
+        "genres": ["POP", "K-POP", "R&B", "DISCO", "SYNTHWAVE", "FUNK", "SOUL", "LATIN"]
+    },
+    "ROCK": {
+        "sampler": "dpmpp_2m",
+        "scheduler": "karras",
+        "steps": 25,  # Slightly higher for guitar texture
+        "cfg": 2.2,
+        "default_key": "E Minor",  # The "Guitar Key" - highest fidelity training data
+        "genres": ["ROCK", "METAL", "PUNK", "GRINDCORE", "INDIE", "PROG ROCK", "DOOM METAL", "COUNTRY", "ACOUSTIC"]
     },
     "ATMOSPHERIC": {
         "sampler": "euler_ancestral",
         "scheduler": "simple",
         "steps": 20,
-        "cfg": 1.0,
-        "genres": ["AMBIENT", "CINEMATIC", "TRANCE"]
+        "cfg": 1.5,
+        "default_key": "C Minor",  # Good for moody/deep textures
+        "genres": ["AMBIENT", "CINEMATIC", "LO-FI", "JAZZ", "CLASSICAL"]
     }
 }
 
@@ -41,6 +52,7 @@ class SongParameters(TypedDict):
     cfg: float
     sampler_name: str
     scheduler: str
+    default_key: str
 
 def calculate_song_parameters(genre: str, lyrics: str) -> SongParameters:
     """
@@ -95,6 +107,7 @@ def calculate_song_parameters(genre: str, lyrics: str) -> SongParameters:
     scheduler = "simple"
     steps = 16
     cfg = 1.0
+    default_key = "C Major"
 
     found_audio_settings = False
     for cat_name, settings in AUDIO_SETTINGS.items():
@@ -104,6 +117,7 @@ def calculate_song_parameters(genre: str, lyrics: str) -> SongParameters:
                 scheduler = settings.get("scheduler", scheduler)
                 steps = settings.get("steps", steps)
                 cfg = settings.get("cfg", cfg)
+                default_key = settings.get("default_key", default_key)
                 found_audio_settings = True
                 break
         if found_audio_settings:
@@ -114,5 +128,6 @@ def calculate_song_parameters(genre: str, lyrics: str) -> SongParameters:
         "steps": steps,
         "cfg": cfg,
         "sampler_name": sampler,
-        "scheduler": scheduler
+        "scheduler": scheduler,
+        "default_key": default_key
     }
