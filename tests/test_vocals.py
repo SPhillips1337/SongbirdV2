@@ -115,7 +115,7 @@ class TestVocalsCLI(unittest.TestCase):
         negative_prompt = kwargs.get('negative_prompt')
 
         self.assertIn("(male vocals:1.2), male singer,", tags)
-        self.assertEqual(negative_prompt, "low quality, glitch, distorted")
+        self.assertEqual(negative_prompt, "female vocals, low quality, glitch, distorted")
 
     def test_vocals_instrumental(self):
         state = {

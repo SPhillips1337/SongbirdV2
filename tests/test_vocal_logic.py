@@ -93,7 +93,7 @@ class TestVocalLogic(unittest.TestCase):
         cfg = kwargs.get('cfg')
 
         self.assertIn("(male vocals:1.5)", tags)
-        self.assertEqual(negative_prompt, "low quality, glitch, distorted")
+        self.assertEqual(negative_prompt, "female vocals, low quality, glitch, distorted")
         self.assertAlmostEqual(cfg, 1.87, places=3)
 
     def test_instrumental(self):

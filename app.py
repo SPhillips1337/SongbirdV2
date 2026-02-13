@@ -4,6 +4,7 @@ import argparse
 import logging
 import re
 import config
+from config import DEFAULT_NEGATIVE_PROMPT_SUFFIX
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -74,20 +75,19 @@ class SongbirdWorkflow:
         if isinstance(music_dir, dict):
             tags = music_dir.get("tags", "")
             bpm = music_dir.get("bpm", 120)
-            # Default fallback, will be overridden by key logic below
-            keyscale = normalize_keyscale(music_dir.get("keyscale", "C major"))
+            # We defer key resolution to the dedicated logic block below
+            generated_key = normalize_keyscale(music_dir.get("keyscale", "C major"))
         else:
             tags = str(music_dir)
             bpm = 120
-            keyscale = "C major"
+            generated_key = "C major"
 
         # Vocal Prompt Injection Logic
         vocals = state.get("vocals", "auto")
         vocal_strength = state.get("vocal_strength", 1.2)
 
-        # New Negative Prompt Logic - High Fidelity / Minimal
-        # Rule: ("male vocals" if female else "") + ", low quality, glitch, distorted"
-        suffix = ", low quality, glitch, distorted"
+        # Negative Prompt Logic
+        suffix = config.DEFAULT_NEGATIVE_PROMPT_SUFFIX
         negative_prompt = ""
 
         if vocals == "female":
@@ -95,20 +95,14 @@ class SongbirdWorkflow:
             negative_prompt = "male vocals" + suffix
         elif vocals == "male":
             tags = f"(male vocals:{vocal_strength}), male singer, {tags}"
-            # Minimal negative prompt as requested
-            negative_prompt = suffix.lstrip(", ")
+            negative_prompt = "female vocals" + suffix
         elif vocals == "instrumental":
             tags = f"(instrumental:{vocal_strength}), no vocals, {tags}"
-            # For instrumental, we must negate vocals to ensure compliance
             negative_prompt = "vocals, voice, singing, lyrics, speech" + suffix
-        elif vocals == "duet":
-            tags = f"(duet vocals:{vocal_strength}), {tags}"
-            negative_prompt = suffix.lstrip(", ")
-        elif vocals == "choir":
-            tags = f"(choir vocals:{vocal_strength}), {tags}"
-            negative_prompt = suffix.lstrip(", ")
         else:
-            # Auto or others
+            # Auto, Duet, Choir, etc.
+            if vocals in ["duet", "choir"]:
+                 tags = f"({vocals} vocals:{vocal_strength}), {tags}"
             negative_prompt = suffix.lstrip(", ")
 
         # Use seed if provided (for consistent audio generation)
@@ -124,7 +118,7 @@ class SongbirdWorkflow:
         params = calculate_song_parameters(state["genre"], state.get("cleaned_lyrics", ""))
 
         # Resolve Key
-        # Priority: User Input > Genre Default > Fallback (MusicAgent/C Major)
+        # Priority: User Input > Genre Default > Generated/Fallback
         user_key = state.get("key")
         genre_default_key = params.get("default_key")
 
@@ -135,17 +129,19 @@ class SongbirdWorkflow:
             keyscale = normalize_keyscale(genre_default_key)
             logging.info(f"Using Genre Default Key: {keyscale}")
         else:
-            # Keep existing keyscale from MusicAgent or fallback
+            keyscale = generated_key
             logging.info(f"Using Generated/Fallback Key: {keyscale}")
 
-        # Adjust CFG for vocal control (lower CFG to compensate for high prompt weights)
+        # Adjust CFG for vocal control
+        # Calculate final CFG explicitly instead of mutating params
+        final_cfg = params["cfg"]
         if vocals != "auto":
-            params["cfg"] = params["cfg"] * 0.85
-            logging.info(f"Vocal control active: Lowering CFG to {params['cfg']:.2f}")
+            final_cfg = final_cfg * 0.85
+            logging.info(f"Vocal control active: Lowering CFG to {final_cfg:.2f}")
 
-        # Hard cap CFG at 3.0 to prevent metallic artifacts
-        if params["cfg"] > 3.0:
-            params["cfg"] = 3.0
+        # Hard cap CFG at 3.0
+        if final_cfg > 3.0:
+            final_cfg = 3.0
             logging.info(f"CFG Hard-capped at 3.0")
 
         logging.info(f"Optimizing for [{state['genre']}]: Duration {params['duration']}s, Sampler {params['sampler_name']}, Scheduler {params['scheduler']}, Key {keyscale}")
@@ -159,7 +155,7 @@ class SongbirdWorkflow:
             seed=seed,
             duration=params["duration"],
             steps=params["steps"],
-            cfg=params["cfg"],
+            cfg=final_cfg,
             sampler_name=params["sampler_name"],
             scheduler=params["scheduler"],
             negative_prompt=negative_prompt
@@ -198,6 +194,25 @@ class SongbirdWorkflow:
         return state
 
     def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None, song_title=None, album_name=None, track_number=None, vocals="auto", vocal_strength=1.2, key=None):
+        """
+        Executes the Songbird workflow.
+
+        Args:
+            genre (str): Musical genre.
+            user_direction (str): User's description/direction.
+            seed (int, optional): Random seed.
+            artist_style (str, optional): Pre-defined artist style.
+            artist_background (str, optional): Pre-defined artist background.
+            song_title (str, optional): Title of the song.
+            album_name (str, optional): Name of the album.
+            track_number (int, optional): Track number in album.
+            vocals (str, optional): Vocal mode (female, male, instrumental, duet, choir, auto).
+            vocal_strength (float, optional): Strength of vocal steering prompts.
+            key (str, optional): Musical key (e.g., 'C Minor') to override defaults.
+
+        Returns:
+            dict: Final state of the workflow.
+        """
         initial_state = {
             "genre": genre,
             "user_direction": user_direction,
