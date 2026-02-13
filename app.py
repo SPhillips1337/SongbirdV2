@@ -113,21 +113,22 @@ class SongbirdWorkflow:
 
         # Vocal Prompt Injection Logic
         vocals = state.get("vocals", "auto")
+        vocal_strength = state.get("vocal_strength", 1.2)
         negative_prompt = ""
 
         if vocals == "female":
-            tags = f"(female vocals:1.4), female singer, {tags}"
-            negative_prompt = "male vocals, male voice"
+            tags = f"(female vocals:{vocal_strength}), female singer, {tags}"
+            negative_prompt = "male vocals"
         elif vocals == "male":
-            tags = f"(male vocals:1.4), male singer, {tags}"
-            negative_prompt = "female vocals, female voice"
+            tags = f"(male vocals:{vocal_strength}), male singer, {tags}"
+            negative_prompt = "female vocals"
         elif vocals == "instrumental":
-            tags = f"(instrumental:1.5), no vocals, {tags}"
+            tags = f"(instrumental:{vocal_strength}), no vocals, {tags}"
             negative_prompt = "vocals, voice, singing, lyrics, speech"
         elif vocals == "duet":
-            tags = f"(duet vocals:1.2), {tags}"
+            tags = f"(duet vocals:{vocal_strength}), {tags}"
         elif vocals == "choir":
-            tags = f"(choir vocals:1.2), {tags}"
+            tags = f"(choir vocals:{vocal_strength}), {tags}"
 
         # Use seed if provided (for consistent audio generation)
         seed = state.get("seed")
@@ -140,6 +141,12 @@ class SongbirdWorkflow:
 
         # Dynamic Audio Engineering
         params = calculate_song_parameters(state["genre"], state.get("cleaned_lyrics", ""))
+
+        # Adjust CFG for vocal control (lower CFG to compensate for high prompt weights)
+        if vocals != "auto":
+            params["cfg"] = params["cfg"] * 0.85
+            logging.info(f"Vocal control active: Lowering CFG to {params['cfg']:.2f}")
+
         logging.info(f"Optimizing for [{state['genre']}]: Duration {params['duration']}s, Sampler {params['sampler_name']}, Scheduler {params['scheduler']}")
 
         result = self.comfy.submit_prompt(
@@ -189,7 +196,7 @@ class SongbirdWorkflow:
 
         return state
 
-    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None, song_title=None, album_name=None, track_number=None, vocals="auto"):
+    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None, song_title=None, album_name=None, track_number=None, vocals="auto", vocal_strength=1.2):
         initial_state = {
             "genre": genre,
             "user_direction": user_direction,
@@ -206,7 +213,8 @@ class SongbirdWorkflow:
             "song_title": song_title,
             "album_name": album_name,
             "track_number": track_number,
-            "vocals": vocals
+            "vocals": vocals,
+            "vocal_strength": vocal_strength
         }
         final_state = self.app.invoke(initial_state)
         self.save_metadata(final_state)
@@ -374,6 +382,7 @@ def main():
     parser.add_argument("--genre", type=str, default="POP", help="Song genre (default: POP)")
     parser.add_argument("--direction", type=str, default="A catchy upbeat pop song in the style of Black Pink about freedom with powerful female vocals and a live drummer.", help="Musical direction for the song")
     parser.add_argument("--vocals", type=str, default="auto", choices=['female', 'male', 'instrumental', 'duet', 'choir', 'auto'], help="Strict vocal control")
+    parser.add_argument("--vocal-strength", type=float, default=1.2, help="Strength of vocal steering (default: 1.2)")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--output", type=str, default="output", help="Output directory (default: output)")
 
@@ -467,7 +476,8 @@ def main():
                 song_title=song_title,
                 album_name=album_name,
                 track_number=i,
-                vocals=args.vocals
+                vocals=args.vocals,
+                vocal_strength=args.vocal_strength
             )
 
             # Capture artist info from the first song if not already captured, but only if successful
@@ -485,7 +495,7 @@ def main():
 
     else:
         # Standard single song mode
-        final_state = flow.run(args.genre, args.direction, vocals=args.vocals)
+        final_state = flow.run(args.genre, args.direction, vocals=args.vocals, vocal_strength=args.vocal_strength)
 
         print("Workflow Complete!")
         if final_state.get('cleaned_lyrics'):
