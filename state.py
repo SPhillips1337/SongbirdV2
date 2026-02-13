@@ -18,3 +18,4 @@ class SongState(TypedDict):
     track_number: Optional[int]
     vocals: Optional[str]
     vocal_strength: Optional[float]
+    key: Optional[str]
