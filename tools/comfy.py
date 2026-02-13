@@ -2,6 +2,7 @@ import requests
 import json
 import time
 import os
+import config
 import logging
 
 class ComfyClient:
@@ -53,24 +54,12 @@ class ComfyClient:
             prompt["104"]["inputs"]["filename_prefix"] = f"audio/{filename_prefix}"
 
         # Handle Negative Prompt
-        if negative_prompt:
-            # Create negative node (105)
-            negative_node = {
-                "inputs": {
-                    "text": negative_prompt,
-                    "clip": ["97", 1]
-                },
-                "class_type": "CLIPTextEncode"
-            }
-            prompt["105"] = negative_node
-
-            # Point KSampler negative input to this node
-            if "3" in prompt:
-                prompt["3"]["inputs"]["negative"] = ["105", 0]
+        # Uses standard CLIPTextEncode node defined in config
+        neg_node_id = getattr(config, "NEGATIVE_PROMPT_NODE_ID", "7")
+        if neg_node_id in prompt:
+            prompt[neg_node_id]["inputs"]["text"] = negative_prompt
         else:
-            # Ensure it points to ZeroOut (47)
-            if "3" in prompt:
-                prompt["3"]["inputs"]["negative"] = ["47", 0]
+            logging.warning(f"Negative prompt node {neg_node_id} not found in workflow.")
 
         try:
             response = requests.post(f"{self.url}/prompt", json={"prompt": prompt}, timeout=self.timeout)

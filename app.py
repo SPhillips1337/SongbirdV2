@@ -87,18 +87,23 @@ class SongbirdWorkflow:
         vocal_strength = state.get("vocal_strength", 1.2)
 
         # Negative Prompt Logic
+        # We avoid the default suffix when using strict vocal control to prevent quality loss
         suffix = config.DEFAULT_NEGATIVE_PROMPT_SUFFIX
         negative_prompt = ""
+        is_strict_vocal_mode = False
 
         if vocals == "female":
             tags = f"(female vocals:{vocal_strength}), female singer, {tags}"
-            negative_prompt = "male vocals" + suffix
+            negative_prompt = "male vocals" # specific, short
+            is_strict_vocal_mode = True
         elif vocals == "male":
             tags = f"(male vocals:{vocal_strength}), male singer, {tags}"
-            negative_prompt = "female vocals" + suffix
+            negative_prompt = "female vocals" # specific, short
+            is_strict_vocal_mode = True
         elif vocals == "instrumental":
             tags = f"(instrumental:{vocal_strength}), no vocals, {tags}"
-            negative_prompt = "vocals, voice, singing, lyrics, speech" + suffix
+            negative_prompt = "vocals, voice, singing, lyrics, speech" # specific
+            is_strict_vocal_mode = True
         else:
             # Auto, Duet, Choir, etc.
             if vocals in ["duet", "choir"]:
@@ -135,7 +140,13 @@ class SongbirdWorkflow:
         # Adjust CFG for vocal control
         # Calculate final CFG explicitly instead of mutating params
         final_cfg = params["cfg"]
-        if vocals != "auto":
+
+        # QUALITY SAFETY LOGIC:
+        # If strict vocal control (negative prompts) is used, we MUST cap CFG low to avoid "Karaoke" artifacts.
+        if is_strict_vocal_mode:
+            final_cfg = 1.5
+            logging.info(f"Strict Vocal Control Active: Forcing CFG to 1.5 to prevent artifacts.")
+        elif vocals != "auto":
             final_cfg = final_cfg * 0.85
             logging.info(f"Vocal control active: Lowering CFG to {final_cfg:.2f}")
 
