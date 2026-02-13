@@ -30,6 +30,12 @@ songbird/
 
    # Custom genre and direction
    python app.py --genre JAZZ --direction "A smooth noir jazz track about rainy city streets" --verbose
+
+   # Generate a full concept album
+   python app.py --album --theme "Cyberpunk dystopia" --genre "SYNTHWAVE" --num-songs 4
+
+   # Specific vocal type
+   python app.py --genre ROCK --vocals female --direction "An anthem about breaking free"
    ```
 
 Refer to [USAGE.md](USAGE.md) for detailed CLI options and setup instructions.

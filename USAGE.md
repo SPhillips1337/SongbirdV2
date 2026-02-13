@@ -46,6 +46,40 @@ LIGHTRAG_URL=http://192.168.1.y:9621
 | `--direction` | Detailed musical/thematic direction | (Catchy POP prompt) |
 | `--output` | Directory to save generated assets | `output` |
 | `--verbose` | Enable INFO level logging (otherwise WARNING) | `False` |
+| `--vocals` | Vocal type (`female`, `male`, `duet`, `choir`, `instrumental`, `auto`) | `auto` |
+| `--album` | Enable Album Mode | `False` |
+| `--theme` | Album theme (required for Album Mode) | None |
+| `--album-name` | Custom album name | (Auto-generated) |
+| `--num-songs` | Number of songs in album | `6` |
+| `--base-direction` | Shared constraints for every song in album | None |
+
+### Album Mode
+
+Album mode allows you to generate a cohesive set of songs around a central theme. The system will:
+1. Generate an album title (if not provided).
+2. Create song titles that fit the narrative.
+3. Ensure musical consistency while progressing the story/vibe through the tracklist.
+4. Organize output into a dedicated album folder.
+
+**Example Album Command:**
+```bash
+python app.py --album --theme "A space opera about a lost pilot" --genre "SYNTHWAVE" --num-songs 4
+```
+
+### Vocal Control
+
+You can strictly enforce the type of vocals generated using the `--vocals` argument. This injects specific tags into the prompt to guide the audio generation.
+
+**Options:**
+- `female`, `male`
+- `duet`, `choir`
+- `instrumental` (forces no vocals)
+- `auto` (default, lets the model decide based on genre)
+
+**Example:**
+```bash
+python app.py --genre ROCK --vocals female --direction "Power ballad"
+```
 
 ### Examples
 
