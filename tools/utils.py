@@ -49,3 +49,32 @@ def sanitize_filename(name):
         return "untitled"
 
     return s
+
+def normalize_keyscale(keyscale_str):
+    """Normalizes keyscale string for ComfyUI validation.
+    Expected format: '{Note} {major/minor}' (e.g., 'C major', 'F# minor')
+    """
+    if not keyscale_str or not isinstance(keyscale_str, str):
+        return "C major"
+
+    parts = keyscale_str.strip().split()
+    if not parts:
+        return "C major"
+
+    # Note normalization (capitalize first letter, handle # and b)
+    note = parts[0]
+    if len(note) > 1:
+        note = note[0].upper() + note[1:].lower()
+    else:
+        note = note.upper()
+
+    # Scale normalization (major or minor)
+    scale = "major" # Default
+    if len(parts) > 1:
+        scale_part = parts[1].lower()
+        if "minor" in scale_part or "m" == scale_part:
+            scale = "minor"
+        else:
+            scale = "major"
+
+    return f"{note} {scale}"

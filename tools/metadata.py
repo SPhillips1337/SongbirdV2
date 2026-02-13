@@ -3,6 +3,7 @@ import glob
 import re
 import logging
 import heapq
+import json
 
 def scan_recent_songs(output_dir, n=3):
     """
@@ -75,3 +76,35 @@ def scan_recent_songs(output_dir, n=3):
             logging.error(f"Error reading metadata file {filepath}: {e}")
 
     return summaries
+
+def save_metadata(state):
+    """Saves song details to a text file in the output directory."""
+    if not state.get("audio_path") or state["audio_path"] == "error":
+        logging.info("Skipping metadata save: No audio generated.")
+        return
+
+    # Derive metadata path from audio path (e.g., song.mp3 -> song_metadata.txt)
+    base_path = os.path.splitext(state["audio_path"])[0]
+    meta_path = f"{base_path}_metadata.txt"
+
+    content = [
+        f"Artist: {state.get('artist_name', 'Unknown')}",
+        f"Album: {state.get('album_name', 'N/A')}",
+        f"Song Title: {state.get('song_title', 'N/A')}",
+        f"Background: {state.get('artist_background', 'N/A')}",
+        f"Genre: {state.get('genre', 'Unknown')}",
+        f"Style (Reference): {state.get('artist_style', 'N/A')}",
+        "\n--- Musical Direction ---",
+        json.dumps(state['musical_direction'], indent=2) if isinstance(state.get('musical_direction'), dict) else str(state.get('musical_direction', 'N/A')),
+        "\n--- Lyrics ---",
+        state.get('cleaned_lyrics', state.get('lyrics', 'No lyrics generated.')),
+        "\n--- Research Notes ---",
+        state.get('research_notes', 'No research notes.')
+    ]
+
+    try:
+        with open(meta_path, "w") as f:
+            f.write("\n".join(content))
+        logging.info(f"Saved song metadata to {meta_path}")
+    except Exception as e:
+        logging.error(f"Error saving metadata: {e}")

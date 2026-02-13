@@ -1,24 +1,22 @@
 import os
-import json
 import time
 import argparse
 import logging
-import requests
 import re
 import config
 from dotenv import load_dotenv
 load_dotenv()
 
-from config import OLLAMA_BASE_URL, ALBUM_MODEL
 from langgraph.graph import StateGraph, END
 from state import SongState
 from agents.artist import ArtistAgent
 from agents.music import MusicAgent
 from agents.lyrics import LyricsAgent
 from tools.comfy import ComfyClient
-from tools.metadata import scan_recent_songs
-from tools.utils import sanitize_input, sanitize_filename
+from tools.metadata import scan_recent_songs, save_metadata
+from tools.utils import sanitize_input, sanitize_filename, normalize_keyscale
 from tools.audio_engineering import calculate_song_parameters
+from agents.director import generate_next_direction, generate_album_title, generate_song_title
 
 SONG_FILENAME_PATTERN = re.compile(r"song_(\d+)_")
 
@@ -53,35 +51,6 @@ class SongbirdWorkflow:
         self.comfy.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
 
-    def normalize_keyscale(self, keyscale_str):
-        """Normalizes keyscale string for ComfyUI validation.
-        Expected format: '{Note} {major/minor}' (e.g., 'C major', 'F# minor')
-        """
-        if not keyscale_str or not isinstance(keyscale_str, str):
-            return "C major"
-            
-        parts = keyscale_str.strip().split()
-        if not parts:
-            return "C major"
-            
-        # Note normalization (capitalize first letter, handle # and b)
-        note = parts[0]
-        if len(note) > 1:
-            note = note[0].upper() + note[1:].lower()
-        else:
-            note = note.upper()
-            
-        # Scale normalization (major or minor)
-        scale = "major" # Default
-        if len(parts) > 1:
-            scale_part = parts[1].lower()
-            if "minor" in scale_part or "m" == scale_part:
-                scale = "minor"
-            else:
-                scale = "major"
-                
-        return f"{note} {scale}"
-
     def node_create_artist(self, state: SongState):
         # Check if artist style/background are already provided (e.g. in Album Mode)
         if not state.get("artist_style"):
@@ -105,7 +74,7 @@ class SongbirdWorkflow:
         if isinstance(music_dir, dict):
             tags = music_dir.get("tags", "")
             bpm = music_dir.get("bpm", 120)
-            keyscale = self.normalize_keyscale(music_dir.get("keyscale", "C major"))
+            keyscale = normalize_keyscale(music_dir.get("keyscale", "C major"))
         else:
             tags = str(music_dir)
             bpm = 120
@@ -217,164 +186,8 @@ class SongbirdWorkflow:
             "vocal_strength": vocal_strength
         }
         final_state = self.app.invoke(initial_state)
-        self.save_metadata(final_state)
+        save_metadata(final_state)
         return final_state
-
-    def save_metadata(self, state: SongState):
-        """Saves song details to a text file in the output directory."""
-        if not state.get("audio_path") or state["audio_path"] == "error":
-            logging.info("Skipping metadata save: No audio generated.")
-            return
-
-        # Derive metadata path from audio path (e.g., song.mp3 -> song_metadata.txt)
-        base_path = os.path.splitext(state["audio_path"])[0]
-        meta_path = f"{base_path}_metadata.txt"
-
-        content = [
-            f"Artist: {state['artist_name']}",
-            f"Album: {state.get('album_name', 'N/A')}",
-            f"Song Title: {state.get('song_title', 'N/A')}",
-            f"Background: {state['artist_background']}",
-            f"Genre: {state['genre']}",
-            f"Style (Reference): {state['artist_style']}",
-            "\n--- Musical Direction ---",
-            json.dumps(state['musical_direction'], indent=2) if isinstance(state['musical_direction'], dict) else str(state['musical_direction']),
-            "\n--- Lyrics ---",
-            state.get('cleaned_lyrics', state.get('lyrics', 'No lyrics generated.')),
-            "\n--- Research Notes ---",
-            state.get('research_notes', 'No research notes.')
-        ]
-
-        try:
-            with open(meta_path, "w") as f:
-                f.write("\n".join(content))
-            logging.info(f"Saved song metadata to {meta_path}")
-        except Exception as e:
-            logging.error(f"Error saving metadata: {e}")
-
-def generate_next_direction(theme, base_direction, previous_songs_summaries, current_song_index, total_songs):
-    """
-    Generates the direction for the next song using Ollama.
-    """
-    system_prompt = (
-        "You are an expert rock album concept writer. Given an album theme and summaries of previous songs, "
-        "suggest the NEXT direction prompt (a short string, 50-100 words) that logically continues the narrative arc "
-        "while keeping musical cohesion. Make it feel like the next chapter in a story. "
-        "Always include references to progression (e.g., 'continue the wolf saga', 'now the pack unites', 'climactic hunt', 'dawn reflection/finale')."
-    )
-
-    prev_songs_text = "".join(
-        f"Song {summary.get('number', i+1)}: "
-        f"Background: {summary.get('background', 'N/A')} | "
-        f"Key lyrics: {summary.get('lyrics_snippet', 'N/A')[:200]}... | "
-        f"Vibe: {summary.get('musical_direction', 'N/A')}\n"
-        for i, summary in enumerate(previous_songs_summaries)
-    )
-
-    user_prompt = (
-        f"Album theme: {theme}\n"
-        f"Shared constraints: {base_direction}\n"
-        f"Previous songs summary:\n{prev_songs_text}\n"
-        f"Now generate the direction prompt for song {current_song_index} of {total_songs}:"
-    )
-
-    payload = {
-        "model": ALBUM_MODEL,
-        "prompt": f"{system_prompt}\n\n{user_prompt}",
-        "stream": False
-    }
-
-    try:
-        response = requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json=payload,
-            timeout=120 # Prevent indefinite hangs
-        )
-        # Check status before trying to parse JSON
-        if response.status_code != 200:
-            logging.error(f"Ollama returned non-200 status: {response.status_code}")
-            return f"{base_direction} {theme}. Continue the story (Song {current_song_index}/{total_songs})."
-            
-        result = response.json()
-        return result.get("response", "").strip()
-    except Exception as e:
-        logging.error(f"Error calling Ollama: {e}")
-        # Graceful fallback if Ollama fails or times out
-        return f"{base_direction} {theme}. Continue the story (Song {current_song_index}/{total_songs})."
-
-def generate_album_title(genre, theme, direction):
-    """
-    Generates a creative album title using Ollama.
-    """
-    prompt = (
-        f"Generate a creative, short (3-5 words) album title for a {genre} album.\n"
-        f"Theme: {theme}\n"
-        f"Style/Direction: {direction}\n"
-        "Output ONLY the album title, nothing else. Do not use quotes."
-    )
-
-    payload = {
-        "model": ALBUM_MODEL,
-        "prompt": prompt,
-        "stream": False
-    }
-
-    try:
-        response = requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json=payload,
-            timeout=30
-        )
-        if response.status_code == 200:
-            title = response.json().get("response", "").strip()
-            # Remove quotes if present
-            if (title.startswith('"') and title.endswith('"')) or (title.startswith("'") and title.endswith("'")):
-                title = title[1:-1]
-            return title if title else theme
-        else:
-            logging.error(f"Ollama returned non-200 status for album title: {response.status_code}")
-    except Exception as e:
-        logging.error(f"Error generating album title: {e}")
-
-    return theme
-
-def generate_song_title(album_name, track_number, genre, theme, direction):
-    """
-    Generates a creative song title using Ollama.
-    """
-    prompt = (
-        f"Generate a creative song title for track #{track_number} of the album '{album_name}'.\n"
-        f"Genre: {genre}\n"
-        f"Album Theme: {theme}\n"
-        f"Song Direction: {direction}\n"
-        "The title should be cohesive with the album concept.\n"
-        "Output ONLY the song title, nothing else. Do not use quotes."
-    )
-
-    payload = {
-        "model": ALBUM_MODEL,
-        "prompt": prompt,
-        "stream": False
-    }
-
-    try:
-        response = requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json=payload,
-            timeout=30
-        )
-        if response.status_code == 200:
-            title = response.json().get("response", "").strip()
-            # Remove quotes if present
-            if (title.startswith('"') and title.endswith('"')) or (title.startswith("'") and title.endswith("'")):
-                title = title[1:-1]
-            return title if title else f"Song {track_number}"
-        else:
-            logging.error(f"Ollama returned non-200 status for song title: {response.status_code}")
-    except Exception as e:
-        logging.error(f"Error generating song title: {e}")
-
-    return f"Song {track_number}"
 
 
 def main():

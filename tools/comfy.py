@@ -12,14 +12,49 @@ class ComfyClient:
         os.makedirs(self.output_dir, exist_ok=True)
 
     def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird", seed=None, steps=8, cfg=1, sampler_name="euler", scheduler="simple", negative_prompt=""):
-        # ACE Step 1.5 Workflow structure from audio_ace_step_1_5_checkpoint.json
+        # Load workflow template
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        template_path = os.path.join(base_dir, "audio_ace_step_1_5_checkpoint.json")
+
+        try:
+            with open(template_path, "r") as f:
+                prompt = json.load(f)
+        except Exception as e:
+            logging.error(f"Error loading workflow template: {e}")
+            return None
+
         generation_seed = seed if seed is not None else int(time.time())
 
-        # Determine negative conditioning source
-        negative_source = ["47", 0]
-        negative_node = None
+        # Update KSampler (Node 3)
+        if "3" in prompt:
+            inputs = prompt["3"]["inputs"]
+            inputs["seed"] = generation_seed
+            inputs["steps"] = steps
+            inputs["cfg"] = cfg
+            inputs["sampler_name"] = sampler_name
+            inputs["scheduler"] = scheduler
+
+        # Update TextEncodeAceStepAudio1.5 (Node 94)
+        if "94" in prompt:
+            inputs = prompt["94"]["inputs"]
+            inputs["tags"] = tags
+            inputs["lyrics"] = lyrics
+            inputs["seed"] = generation_seed
+            inputs["bpm"] = bpm
+            inputs["duration"] = duration
+            inputs["keyscale"] = keyscale
+
+        # Update EmptyAceStep1.5LatentAudio (Node 98)
+        if "98" in prompt:
+            prompt["98"]["inputs"]["seconds"] = duration
+
+        # Update SaveAudioMP3 (Node 104)
+        if "104" in prompt:
+            prompt["104"]["inputs"]["filename_prefix"] = f"audio/{filename_prefix}"
+
+        # Handle Negative Prompt
         if negative_prompt:
-            negative_source = ["105", 0]
+            # Create negative node (105)
             negative_node = {
                 "inputs": {
                     "text": negative_prompt,
@@ -27,88 +62,15 @@ class ComfyClient:
                 },
                 "class_type": "CLIPTextEncode"
             }
-
-        prompt = {
-            "3": {
-                "inputs": {
-                    "seed": generation_seed,
-                    "steps": steps,
-                    "cfg": cfg,
-                    "sampler_name": sampler_name,
-                    "scheduler": scheduler,
-                    "denoise": 1,
-                    "model": ["78", 0],
-                    "positive": ["94", 0],
-                    "negative": negative_source,
-                    "latent_image": ["98", 0]
-                },
-                "class_type": "KSampler"
-            },
-            "18": {
-                "inputs": {
-                    "samples": ["3", 0],
-                    "vae": ["97", 2]
-                },
-                "class_type": "VAEDecodeAudio"
-            },
-            "47": {
-                "inputs": {
-                    "conditioning": ["94", 0]
-                },
-                "class_type": "ConditioningZeroOut"
-            },
-            "78": {
-                "inputs": {
-                    "shift": 3,
-                    "model": ["97", 0]
-                },
-                "class_type": "ModelSamplingAuraFlow"
-            },
-            "94": {
-                "inputs": {
-                    "tags": tags,
-                    "lyrics": lyrics,
-                    "seed": generation_seed,
-                    "bpm": bpm,
-                    "duration": duration,
-                    "timesignature": "4",
-                    "language": "en",
-                    "keyscale": keyscale,
-                    "generate_audio_codes": True,
-                    "cfg_scale": 2,
-                    "temperature": 0.85,
-                    "top_p": 0.9,
-                    "top_k": 0,
-                    "clip": ["97", 1]
-                },
-                "class_type": "TextEncodeAceStepAudio1.5"
-            },
-            "97": {
-                "inputs": {
-                    "ckpt_name": "ace_step_1.5_turbo_aio.safetensors"
-                },
-                "class_type": "CheckpointLoaderSimple"
-            },
-            "98": {
-                "inputs": {
-                    "seconds": duration,
-                    "batch_size": 1
-                },
-                "class_type": "EmptyAceStep1.5LatentAudio"
-            },
-            "104": {
-                "inputs": {
-                    "filename_prefix": f"audio/{filename_prefix}",
-                    "quality": "V0",
-                    "audioUI": "",
-                    "audio": ["18", 0]
-                },
-                "class_type": "SaveAudioMP3"
-            }
-        }
-
-        if negative_node:
             prompt["105"] = negative_node
+
+            # Point KSampler negative input to this node
+            if "3" in prompt:
+                prompt["3"]["inputs"]["negative"] = ["105", 0]
+        else:
+            # Ensure it points to ZeroOut (47)
+            if "3" in prompt:
+                prompt["3"]["inputs"]["negative"] = ["47", 0]
 
         try:
             response = requests.post(f"{self.url}/prompt", json={"prompt": prompt}, timeout=self.timeout)

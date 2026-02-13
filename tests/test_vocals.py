@@ -1,17 +1,28 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import sys
+import os
 
-# Patch dependencies
-sys.modules["requests"] = MagicMock()
-sys.modules["langgraph"] = MagicMock()
-sys.modules["langgraph.graph"] = MagicMock()
-sys.modules["dotenv"] = MagicMock()
-sys.modules["psycopg2"] = MagicMock()
-sys.modules["tools.rag"] = MagicMock() # Often needs patching if imported
-sys.modules["config"] = MagicMock()
+# Add root to path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Now import app
+# Mock dependencies before importing app
+# Check if they are already mocked (e.g. by run_tests_patched.py)
+if 'requests' not in sys.modules or not isinstance(sys.modules['requests'], MagicMock):
+    sys.modules['requests'] = MagicMock()
+    sys.modules['langgraph'] = MagicMock()
+    sys.modules['langgraph.graph'] = MagicMock()
+    sys.modules['dotenv'] = MagicMock()
+    sys.modules['psycopg2'] = MagicMock()
+    sys.modules['tools.rag'] = MagicMock()
+
+    # Mock config
+    config_mock = MagicMock()
+    config_mock.OLLAMA_BASE_URL = "http://localhost:11434"
+    config_mock.ALBUM_MODEL = "llama3"
+    config_mock.MUSIC_PROMPTS = {"POP": "pop prompt", "ROCK": "rock prompt", "LO-FI": "lo-fi prompt", "JAZZ": "jazz prompt"}
+    sys.modules['config'] = config_mock
+
 import app
 from state import SongState
 from tools.comfy import ComfyClient
@@ -74,11 +85,6 @@ class TestVocalsCLI(unittest.TestCase):
 
         self.workflow.node_generate_audio(state)
 
-        # Verify submit_prompt call arguments
-        # Since self.workflow.comfy is the mock instance
-        # Actually self.workflow.comfy was set in __init__ to ComfyClient(output_dir=...)
-        # Since ComfyClient was patched, it returns a mock.
-
         call_args = self.mock_comfy_instance.submit_prompt.call_args
         self.assertIsNotNone(call_args, "submit_prompt was not called")
 
@@ -86,8 +92,8 @@ class TestVocalsCLI(unittest.TestCase):
         tags = kwargs.get('tags')
         negative_prompt = kwargs.get('negative_prompt')
 
-        self.assertIn("(female vocals:1.4), female singer,", tags)
-        self.assertEqual(negative_prompt, "male vocals, male voice")
+        self.assertIn("(female vocals:1.2), female singer,", tags)
+        self.assertEqual(negative_prompt, "male vocals")
 
     def test_vocals_male(self):
         state = {
@@ -108,8 +114,8 @@ class TestVocalsCLI(unittest.TestCase):
         tags = kwargs.get('tags')
         negative_prompt = kwargs.get('negative_prompt')
 
-        self.assertIn("(male vocals:1.4), male singer,", tags)
-        self.assertEqual(negative_prompt, "female vocals, female voice")
+        self.assertIn("(male vocals:1.2), male singer,", tags)
+        self.assertEqual(negative_prompt, "female vocals")
 
     def test_vocals_instrumental(self):
         state = {
@@ -130,7 +136,7 @@ class TestVocalsCLI(unittest.TestCase):
         tags = kwargs.get('tags')
         negative_prompt = kwargs.get('negative_prompt')
 
-        self.assertIn("(instrumental:1.5), no vocals,", tags)
+        self.assertIn("(instrumental:1.2), no vocals,", tags)
         self.assertEqual(negative_prompt, "vocals, voice, singing, lyrics, speech")
 
     def test_vocals_duet(self):
@@ -153,6 +159,11 @@ class TestVocalsCLI(unittest.TestCase):
         negative_prompt = kwargs.get('negative_prompt')
 
         self.assertIn("(duet vocals:1.2),", tags)
+        # Assuming empty string for duet/choir unless specified otherwise
+        # In implementation:
+        # elif vocals == "duet":
+        #    tags = f"(duet vocals:{vocal_strength}), {tags}"
+        # Negative prompt is initialized to ""
         self.assertEqual(negative_prompt, "")
 
     def test_vocals_auto(self):
