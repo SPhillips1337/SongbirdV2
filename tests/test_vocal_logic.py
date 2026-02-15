@@ -71,9 +71,9 @@ class TestVocalLogic(unittest.TestCase):
         cfg = kwargs.get('cfg')
 
         self.assertIn("(female vocals:1.2)", tags)
-        self.assertEqual(negative_prompt, "male vocals, low quality, glitch, distorted")
-        # Base CFG is 1.5, should be reduced by 15% -> 1.5 * 0.85 = 1.275
-        self.assertAlmostEqual(cfg, 1.7, places=3)
+        self.assertEqual(negative_prompt, "male vocals")
+        # Strict vocal mode forces CFG to 1.5
+        self.assertEqual(cfg, 1.5)
 
     def test_male_vocals_custom_strength(self):
         state = {
@@ -93,8 +93,9 @@ class TestVocalLogic(unittest.TestCase):
         cfg = kwargs.get('cfg')
 
         self.assertIn("(male vocals:1.5)", tags)
-        self.assertEqual(negative_prompt, "female vocals, low quality, glitch, distorted")
-        self.assertAlmostEqual(cfg, 1.87, places=3)
+        self.assertEqual(negative_prompt, "female vocals")
+        # Strict vocal mode forces CFG to 1.5
+        self.assertEqual(cfg, 1.5)
 
     def test_instrumental(self):
         state = {
@@ -114,8 +115,9 @@ class TestVocalLogic(unittest.TestCase):
         cfg = kwargs.get('cfg')
 
         self.assertIn("(instrumental:1.2)", tags)
-        self.assertEqual(negative_prompt, "vocals, voice, singing, lyrics, speech, low quality, glitch, distorted")
-        self.assertAlmostEqual(cfg, 1.275, places=3)
+        self.assertEqual(negative_prompt, "vocals, voice, singing, lyrics, speech")
+        # Strict vocal mode forces CFG to 1.5
+        self.assertEqual(cfg, 1.5)
 
     def test_auto_vocals(self):
         state = {

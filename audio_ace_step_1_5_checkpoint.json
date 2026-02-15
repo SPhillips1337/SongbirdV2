@@ -16,7 +16,7 @@
         0
       ],
       "negative": [
-        "47",
+        "7",
         0
       ],
       "latent_image": [
@@ -45,18 +45,6 @@
       "title": "VAE Decode Audio"
     }
   },
-  "47": {
-    "inputs": {
-      "conditioning": [
-        "94",
-        0
-      ]
-    },
-    "class_type": "ConditioningZeroOut",
-    "_meta": {
-      "title": "ConditioningZeroOut"
-    }
-  },
   "78": {
     "inputs": {
       "shift": 3,
@@ -72,8 +60,8 @@
   },
   "94": {
     "inputs": {
-      "tags": "Neo-Soul: A warm, organic neo-soul track dripping with live instrumentation and effortless groove. A live drummer plays a loose, hip-hop influenced pocket—soft kick drum with lazy swing, snare hits that sit just behind the beat, and brushed hi-hats that breathe and shuffle with human imperfection.",
-      "lyrics": "[Intro - Guitar Riff & Drums]\nmm…\nyeah…\nlet it breathe…\n\n[Verse 1]\nLate night glow on your skin  \nWindow cracked, city hums again  \nCoffee rings on the table top  \nTime don’t rush, it just drops  \n\nLoose kick drum, heart runs slow  \nSnare talks back, says “take it low”  \nEvery step just slightly late  \nStill we land right on the faith  \n\n[Verse]\nYour laugh swings behind the beat  \nBarefoot dancing on the street  \nNothing polished, nothing tight  \nFeels more real that way tonight  \n\nBrush those hats, let them slide  \nLeave some space where truth can hide  \nIf it falls, let it fall  \nThat’s the soul inside it all  \n\n[Pre-Chorus]\nNo count-in for this kind of love  \nWe don’t line it up  \nWe just lean and trust  \n\n[Chorus]\nStay right there, don’t pull it straight  \nI love how we arrive late  \nOff the grid but locked in time  \nThat lazy swing feels like mine  \n\nYeah we bend, we drift, we sway  \nLet tomorrow wait its turn today  \nIf love lives just off the line  \nSoft kick drum, your hand in mine  \n\n[Verse]\nVinyl spins, the room exhales  \nEvery scar tells its tale  \nYour voice cracks, but I don’t care  \nThat’s the truth living in there  \n\nHeartbeat talks through wood and wire  \nLow-end warmth, a quiet fire  \nNothing perfect, nothing clean  \nStill the best thing I’ve ever seen  \n\n[Bridge]\nBrush it light, let it breathe  \nLeave a little space for me  \nEvery miss is part of it  \nThat’s how soul was always meant  \n\nBehind the beat, but dead-on true  \nEvery swing just sounds like you  \nIf the night don’t find a end  \nI’ll stay right here, count me in  \n\n[Chorus]\nStay right there, don’t pull it straight  \nI love how we arrive late  \nOff the grid but locked in time  \nThat lazy swing feels like mine  \n\nYeah we bend, we drift, we sway  \nLet tomorrow wait its turn today  \nIf love lives just off the line  \nSoft kick drum, your hand in mine  \n\n[Outro - Guitar Riff & Final Chord]\nno rush…\nno rush…\njust groove…\n",
+      "tags": "Neo-Soul: A warm, organic neo-soul track dripping with live instrumentation and effortless groove. A live drummer plays a loose, hip-hop influenced pocket\u2014soft kick drum with lazy swing, snare hits that sit just behind the beat, and brushed hi-hats that breathe and shuffle with human imperfection.",
+      "lyrics": "[Intro - Guitar Riff & Drums]\nmm\u2026\nyeah\u2026\nlet it breathe\u2026\n\n[Verse 1]\nLate night glow on your skin  \nWindow cracked, city hums again  \nCoffee rings on the table top  \nTime don\u2019t rush, it just drops  \n\nLoose kick drum, heart runs slow  \nSnare talks back, says \u201ctake it low\u201d  \nEvery step just slightly late  \nStill we land right on the faith  \n\n[Verse]\nYour laugh swings behind the beat  \nBarefoot dancing on the street  \nNothing polished, nothing tight  \nFeels more real that way tonight  \n\nBrush those hats, let them slide  \nLeave some space where truth can hide  \nIf it falls, let it fall  \nThat\u2019s the soul inside it all  \n\n[Pre-Chorus]\nNo count-in for this kind of love  \nWe don\u2019t line it up  \nWe just lean and trust  \n\n[Chorus]\nStay right there, don\u2019t pull it straight  \nI love how we arrive late  \nOff the grid but locked in time  \nThat lazy swing feels like mine  \n\nYeah we bend, we drift, we sway  \nLet tomorrow wait its turn today  \nIf love lives just off the line  \nSoft kick drum, your hand in mine  \n\n[Verse]\nVinyl spins, the room exhales  \nEvery scar tells its tale  \nYour voice cracks, but I don\u2019t care  \nThat\u2019s the truth living in there  \n\nHeartbeat talks through wood and wire  \nLow-end warmth, a quiet fire  \nNothing perfect, nothing clean  \nStill the best thing I\u2019ve ever seen  \n\n[Bridge]\nBrush it light, let it breathe  \nLeave a little space for me  \nEvery miss is part of it  \nThat\u2019s how soul was always meant  \n\nBehind the beat, but dead-on true  \nEvery swing just sounds like you  \nIf the night don\u2019t find a end  \nI\u2019ll stay right here, count me in  \n\n[Chorus]\nStay right there, don\u2019t pull it straight  \nI love how we arrive late  \nOff the grid but locked in time  \nThat lazy swing feels like mine  \n\nYeah we bend, we drift, we sway  \nLet tomorrow wait its turn today  \nIf love lives just off the line  \nSoft kick drum, your hand in mine  \n\n[Outro - Guitar Riff & Final Chord]\nno rush\u2026\nno rush\u2026\njust groove\u2026\n",
       "seed": 31,
       "bpm": 190,
       "duration": 120,
@@ -127,6 +115,19 @@
     "class_type": "SaveAudioMP3",
     "_meta": {
       "title": "Save Audio (MP3)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "97",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative)"
     }
   }
 }

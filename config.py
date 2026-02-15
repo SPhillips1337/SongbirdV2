@@ -34,3 +34,5 @@ DEFAULT_ARTIST_STYLE = "Adele"
 
 # Default negative prompt suffix for high-fidelity audio
 DEFAULT_NEGATIVE_PROMPT_SUFFIX = ", low quality, glitch, distorted"
+# Negative Prompt Node ID for ComfyUI Workflow
+NEGATIVE_PROMPT_NODE_ID = "7"
