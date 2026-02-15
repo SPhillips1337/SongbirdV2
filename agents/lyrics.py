@@ -97,6 +97,19 @@ Output Requirements:
 - CONTENT: Make the lyrics raw, emotional, and authentic to the genre. Avoid cheesy rhymes.
 - FORMAT: STRICTLY lyrics only. No conversational text, no explanations.
 
+Audio Engineering / Punctuation Rules (CRITICAL):
+- Enforce "Breathable" Syntax:
+    - Every single line MUST end with a punctuation mark ('.' or ',' or '?' or '!').
+    - Use commas (',') mid-line to create short rhythmic pauses (micro-breaths).
+    - Use periods ('.') at the end of phrases to force a full breath/reset.
+    - Use ellipses ('...') to create tension or trailing vocals.
+    - Use hyphens ('-') to indicate stuttering or stretched words (e.g., "S-stop").
+- Structural Formatting:
+    - Ensure the output always uses clear section headers in brackets: [Verse 1], [Chorus], [Bridge].
+    - Insert a blank line between every section.
+- Implementation:
+    - Write lyrics with strict punctuation. Treat punctuation as musical notation for breathing. Never write a line without ending punctuation.
+
 Begin creative workflow immediately."""
 
         try:
@@ -210,9 +223,21 @@ Begin creative workflow immediately."""
 
         lines = lyrics.split('\n')
         cleaned_lines = []
+        last_line_was_empty = True  # Start true to avoid leading blank lines
+
         for line in lines:
             cleaned = line.strip()
-            # Remove empty lines
+
             if cleaned:
                 cleaned_lines.append(cleaned)
+                last_line_was_empty = False
+            elif not last_line_was_empty:
+                # Add a blank line if the previous line wasn't empty
+                cleaned_lines.append("")
+                last_line_was_empty = True
+
+        # Remove trailing blank lines
+        if cleaned_lines and cleaned_lines[-1] == "":
+            cleaned_lines.pop()
+
         return '\n'.join(cleaned_lines)

@@ -47,7 +47,7 @@ class TestLyricsAgent(unittest.TestCase):
         [Verse 1]
         Singing a song
         """
-        expected = "[Intro]\nHello world\n[Verse 1]\nSinging a song"
+        expected = "[Intro]\nHello world\n\n[Verse 1]\nSinging a song"
         self.assertEqual(self.agent.normalize_lyrics(raw_lyrics), expected)
 
     def test_strip_quotes(self):
