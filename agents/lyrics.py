@@ -1,17 +1,203 @@
 import requests
-import re
-import requests
+import json
 import logging
+import re
 from config import OLLAMA_BASE_URL, LYRIC_MODEL
 from tools.rag import RAGTool
 from tools.perplexity import PerplexityClient
+from tools.audio_engineering import calculate_lyric_budget, DURATION_CATEGORIES
 
-# Keywords that indicate instrumental/musical directions (not sung vocals)
+# Keywords that indicate musical/instrumental directions (should be removed)
 MUSICAL_KEYWORDS = [
-    'guitar', 'guitars', 'drum', 'drums', 'bass', 'basses', 'riff', 'riffs',
-    'solo', 'solos', 'synth', 'synths', 'piano', 'pianos', 'keys',
-    'reverb', 'distortion', 'atmospheric', 'shredding', 'face-melting',
-    'crushing', 'pounding', 'grunty', 'snare', 'snares', 'kick', 'kicks',
+    'guitar', 'solo', 'riff', 'drums', 'drum', 'bass', 'synth', 'piano',
+    'intro', 'outro', 'bridge', 'chorus', 'verse', 'break', 'drop',
+    'build', 'build-up', 'instrumental', 'hook', 'refrain', 'interlude',
+    'coda', 'pre-chorus', 'post-chorus', 'ad-lib', 'harmony', 'background',
+    'vocal', 'vocals', 'voice', 'voices', 'singer', 'singing', 'choir',
+    'applause', 'cheer', 'crowd', 'noise', 'sound', 'effect', 'fx',
+    'sample', 'scratch', 'scratching', 'turntable', 'dj', 'mix', 'remix',
+    'producer', 'production', 'track', 'song', 'music', 'record', 'recording',
+    'studio', 'mic', 'microphone', 'headphones', 'speaker', 'speakers',
+    'volume', 'level', 'gain', 'EQ', 'equalizer', 'compressor', 'limiter',
+    'reverb', 'delay', 'echo', 'distortion', 'overdrive', 'fuzz', 'wah',
+    'flanger', 'phaser', 'chorus', 'tremolo', 'vibrato', 'pitch', 'shift',
+    'tempo', 'bpm', 'rhythm', 'beat', 'groove', 'swing', 'shuffle',
+    'syncopation', 'measure', 'bar', 'staff', 'score', 'note', 'chord',
+    'scale', 'key', 'major', 'minor', 'sharp', 'flat', 'natural',
+    'octave', 'interval', 'tone', 'semitone', 'tuning', 'standard',
+    'drop-d', 'open', 'alternate', 'capo', 'slide', 'bend', 'hammer-on',
+    'pull-off', 'tapping', 'sweep', 'picking', 'fingerstyle', 'strumming',
+    'pattern', 'arpeggio', 'palm', 'mute', 'harmonic', 'pinch', 'natural',
+    'artificial', 'whammy', 'bar', 'arm', 'pedal', 'board', 'amp',
+    'amplifier', 'cabinet', 'stack', 'combo', 'tube', 'solid', 'state',
+    'digital', 'modeling', 'simulation', 'plugin', 'vst', 'au', 'aax',
+    'rtas', 'daw', 'workstation', 'sequencer', 'sampler', 'synthesizer',
+    'keyboard', 'controller', 'midi', 'interface', 'audio', 'signal',
+    'chain', 'routing', 'bus', 'send', 'return', 'insert', 'master',
+    'fader', 'knob', 'button', 'switch', 'potentiometer', 'encoder',
+    'display', 'screen', 'monitor', 'meter', 'analyzer', 'spectrum',
+    'frequency', 'amplitude', 'phase', 'polarity', 'stereo', 'mono',
+    'surround', 'spatial', '3d', 'binaural', 'ambisonic', 'hrtf',
+    'convolution', 'impulse', 'response', 'filter', 'cut', 'boost',
+    'shelf', 'bell', 'notch', 'band', 'pass', 'stop', 'low', 'high',
+    'mid', 'presence', 'air', 'body', 'warmth', 'brightness', 'clarity',
+    'definition', 'punch', 'attack', 'decay', 'sustain', 'release',
+    'transient', 'envelope', 'gate', 'expander', 'ducker', 'sidechain',
+    'lookahead', 'knee', 'ratio', 'threshold', 'ceiling', 'makeup',
+    'output', 'input', 'source', 'destination', 'channel', 'strip',
+    'console', 'mixer', 'desk', 'board', 'surface', 'control', 'remote',
+    'automation', 'recall', 'scene', 'snapshot', 'preset', 'bank',
+    'program', 'change', 'message', 'event', 'trigger', 'clock', 'sync',
+    'transport', 'play', 'stop', 'record', 'pause', 'rewind', 'fast',
+    'forward', 'loop', 'cycle', 'punch', 'in', 'out', 'marker', 'locator',
+    'region', 'clip', 'segment', 'slice', 'sample', 'editor', 'piano',
+    'roll', 'score', 'notation', 'tablature', 'lyrics', 'text', 'font',
+    'color', 'theme', 'skin', 'layout', 'workspace', 'window', 'pane',
+    'panel', 'tab', 'menu', 'toolbar', 'status', 'bar', 'scroll', 'zoom',
+    'navigate', 'select', 'edit', 'copy', 'cut', 'paste', 'delete',
+    'undo', 'redo', 'save', 'load', 'import', 'export', 'render',
+    'bounce', 'mixdown', 'mastering', 'distribution', 'release', 'album',
+    'single', 'ep', 'lp', 'cd', 'vinyl', 'cassette', 'digital', 'streaming',
+    'platform', 'service', 'spotify', 'apple', 'music', 'youtube',
+    'soundcloud', 'bandcamp', 'tidal', 'deezer', 'amazon', 'pandora',
+    'radio', 'broadcast', 'podcast', 'playlist', 'library', 'catalog',
+    'database', 'metadata', 'tag', 'id3', 'isrc', 'upc', 'ean', 'barcode',
+    'copyright', 'royalty', 'publishing', 'licensing', 'sync', 'performance',
+    'rights', 'organization', 'pro', 'ascap', 'bmi', 'sesac', 'gema',
+    'prs', 'mcps', 'sacem', 'siae', 'sgae', 'jasrac', 'komca', 'cash',
+    'cow', 'money', 'business', 'industry', 'label', 'manager', 'agent',
+    'promoter', 'publicist', 'marketing', 'social', 'media', 'fan',
+    'base', 'audience', 'concert', 'tour', 'festival', 'gig', 'venue',
+    'stage', 'light', 'sound', 'engineer', 'technician', 'roadie',
+    'crew', 'backstage', 'rider', 'contract', 'negotiation', 'deal',
+    'advance', 'recoupment', 'profit', 'loss', 'budget', 'finance',
+    'tax', 'legal', 'lawyer', 'attorney', 'court', 'litigation',
+    'dispute', 'settlement', 'judgment', 'verdict', 'appeal', 'precedent',
+    'statute', 'regulation', 'policy', 'guideline', 'standard', 'practice',
+    'ethics', 'morality', 'integrity', 'reputation', 'image', 'brand',
+    'identity', 'logo', 'design', 'art', 'artwork', 'cover', 'sleeve',
+    'booklet', 'insert', 'poster', 'flyer', 'banner', 'merchandise',
+    't-shirt', 'hoodie', 'hat', 'cap', 'sticker', 'patch', 'pin',
+    'button', 'badge', 'magnet', 'keychain', 'poster', 'flag', 'banner',
+    'backdrop', 'scrim', 'riser', 'platform', 'staging', 'truss',
+    'rigging', 'lighting', 'fixture', 'spot', 'wash', 'beam', 'laser',
+    'strobe', 'fog', 'haze', 'smoke', 'pyro', 'fire', 'confetti',
+    'streamer', 'balloon', 'bubble', 'snow', 'foam', 'cryo', 'jet',
+    'co2', 'cannon', 'launcher', 'dispenser', 'machine', 'device',
+    'equipment', 'gear', 'hardware', 'software', 'firmware', 'driver',
+    'update', 'upgrade', 'patch', 'fix', 'bug', 'glitch', 'error',
+    'crash', 'freeze', 'hang', 'lag', 'latency', 'delay', 'buffer',
+    'underrun', 'overflow', 'clipping', 'distortion', 'noise', 'hum',
+    'hiss', 'buzz', 'crackle', 'pop', 'click', 'dropout', 'artifact',
+    'aliasing', 'quantization', 'jitter', 'drift', 'skew', 'offset',
+    'drift', 'wandering', 'instability', 'fluctuation', 'variation',
+    'deviation', 'error', 'mistake', 'failure', 'breakdown', 'malfunction',
+    'defect', 'flaw', 'fault', 'imperfection', 'limitation', 'constraint',
+    'restriction', 'boundary', 'limit', 'threshold', 'ceiling', 'floor',
+    'range', 'scope', 'extent', 'magnitude', 'amplitude', 'level',
+    'volume', 'loudness', 'intensity', 'power', 'energy', 'force',
+    'pressure', 'impact', 'effect', 'influence', 'consequence', 'result',
+    'outcome', 'output', 'product', 'creation', 'work', 'piece',
+    'composition', 'arrangement', 'orchestration', 'instrumentation',
+    'voicing', 'part', 'line', 'melody', 'harmony', 'rhythm', 'beat',
+    'groove', 'feel', 'vibe', 'mood', 'atmosphere', 'ambience', 'texture',
+    'timbre', 'color', 'tone', 'sound', 'sonic', 'audio', 'acoustic',
+    'electric', 'electronic', 'digital', 'analog', 'hybrid', 'fusion',
+    'mixture', 'blend', 'combination', 'synthesis', 'integration',
+    'unification', 'convergence', 'divergence', 'contrast', 'juxtaposition',
+    'conflict', 'tension', 'release', 'resolution', 'cadence', 'phrase',
+    'sentence', 'period', 'section', 'movement', 'chapter', 'verse',
+    'chorus', 'bridge', 'intro', 'outro', 'coda', 'refrain', 'hook',
+    'riff', 'lick', 'fill', 'solo', 'improvisation', 'jam', 'session',
+    'performance', 'recital', 'concert', 'show', 'gig', 'set', 'list',
+    'repertoire', 'catalog', 'discography', 'filmography', 'bibliography',
+    'biography', 'history', 'background', 'context', 'perspective',
+    'viewpoint', 'standpoint', 'angle', 'approach', 'method', 'technique',
+    'style', 'genre', 'category', 'classification', 'type', 'kind',
+    'sort', 'form', 'format', 'structure', 'organization', 'arrangement',
+    'order', 'sequence', 'progression', 'development', 'evolution',
+    'growth', 'maturity', 'refinement', 'polishing', 'finishing',
+    'completion', 'finalization', 'conclusion', 'ending', 'closure',
+    'wrap-up', 'summary', 'review', 'analysis', 'critique', 'evaluation',
+    'assessment', 'judgment', 'opinion', 'feedback', 'comment', 'remark',
+    'observation', 'note', 'memo', 'reminder', 'alert', 'warning',
+    'notice', 'announcement', 'declaration', 'statement', 'proclamation',
+    'manifesto', 'creed', 'doctrine', 'dogma', 'tenet', 'principle',
+    'rule', 'law', 'regulation', 'statute', 'ordinance', 'decree',
+    'mandate', 'order', 'command', 'instruction', 'direction', 'guidance',
+    'advice', 'counsel', 'suggestion', 'recommendation', 'proposal',
+    'offer', 'bid', 'tender', 'quote', 'estimate', 'valuation',
+    'appraisal', 'audit', 'inspection', 'examination', 'investigation',
+    'inquiry', 'probe', 'survey', 'study', 'research', 'exploration',
+    'discovery', 'invention', 'innovation', 'creation', 'development',
+    'design', 'plan', 'scheme', 'strategy', 'tactic', 'maneuver',
+    'operation', 'mission', 'project', 'program', 'campaign', 'initiative',
+    'enterprise', 'venture', 'undertaking', 'endeavor', 'effort',
+    'attempt', 'try', 'trial', 'test', 'experiment', 'pilot', 'prototype',
+    'model', 'sample', 'specimen', 'example', 'instance', 'case',
+    'illustration', 'demonstration', 'exhibition', 'display', 'showcase',
+    'presentation', 'lecture', 'talk', 'speech', 'address', 'sermon',
+    'homily', 'discourse', 'discussion', 'debate', 'argument', 'controversy',
+    'dispute', 'conflict', 'struggle', 'battle', 'war', 'fight',
+    'combat', 'clash', 'confrontation', 'encounter', 'meeting',
+    'gathering', 'assembly', 'convention', 'conference', 'symposium',
+    'seminar', 'workshop', 'clinic', 'masterclass', 'lesson', 'tutorial',
+    'guide', 'manual', 'handbook', 'reference', 'dictionary',
+    'encyclopedia', 'thesaurus', 'almanac', 'atlas', 'map', 'chart',
+    'graph', 'diagram', 'table', 'list', 'index', 'register', 'log',
+    'record', 'file', 'document', 'paper', 'report', 'article', 'essay',
+    'thesis', 'dissertation', 'book', 'novel', 'story', 'tale',
+    'narrative', 'account', 'chronicle', 'history', 'biography', 'memoir',
+    'diary', 'journal', 'blog', 'post', 'comment', 'tweet', 'status',
+    'update', 'message', 'email', 'letter', 'note', 'card', 'invitation',
+    'ticket', 'pass', 'badge', 'id', 'credential', 'license', 'permit',
+    'certificate', 'diploma', 'degree', 'award', 'prize', 'trophy',
+    'medal', 'ribbon', 'plaque', 'shield', 'cup', 'bowl', 'plate',
+    'dish', 'saucer', 'mug', 'glass', 'bottle', 'can', 'jar', 'box',
+    'carton', 'packet', 'bag', 'sack', 'pouch', 'case', 'crate', 'bin',
+    'basket', 'bucket', 'barrel', 'drum', 'tank', 'vat', 'cistern',
+    'reservoir', 'pool', 'pond', 'lake', 'sea', 'ocean', 'river',
+    'stream', 'creek', 'brook', 'spring', 'well', 'fountain', 'geyser',
+    'waterfall', 'cascade', 'rapids', 'current', 'tide', 'wave', 'swell',
+    'surf', 'foam', 'spray', 'mist', 'fog', 'cloud', 'rain', 'snow',
+    'hail', 'sleet', 'ice', 'frost', 'dew', 'wind', 'breeze', 'gale',
+    'storm', 'hurricane', 'typhoon', 'cyclone', 'tornado', 'twister',
+    'whirlwind', 'vortex', 'eddy', 'spiral', 'circle', 'ring', 'loop',
+    'coil', 'curl', 'curve', 'arc', 'bend', 'turn', 'twist', 'spin',
+    'rotation', 'revolution', 'orbit', 'trajectory', 'path', 'course',
+    'route', 'way', 'road', 'street', 'avenue', 'boulevard', 'lane',
+    'drive', 'court', 'place', 'square', 'plaza', 'park', 'garden',
+    'yard', 'lawn', 'field', 'meadow', 'pasture', 'grass', 'turf',
+    'ground', 'earth', 'soil', 'dirt', 'mud', 'sand', 'gravel', 'stone',
+    'rock', 'boulder', 'pebble', 'dust', 'powder', 'ash', 'soot',
+    'smoke', 'fume', 'vapor', 'gas', 'liquid', 'fluid', 'solid',
+    'plasma', 'matter', 'energy', 'power', 'force', 'strength', 'might',
+    'vigor', 'vitality', 'life', 'spirit', 'soul', 'heart', 'mind',
+    'brain', 'intellect', 'intelligence', 'wisdom', 'knowledge',
+    'understanding', 'comprehension', 'insight', 'intuition', 'instinct',
+    'feeling', 'emotion', 'sentiment', 'passion', 'desire', 'wish',
+    'hope', 'dream', 'fantasy', 'imagination', 'creativity', 'invention',
+    'innovation', 'discovery', 'exploration', 'adventure', 'journey',
+    'voyage', 'travel', 'trip', 'tour', 'expedition', 'quest', 'search',
+    'hunt', 'chase', 'pursuit', 'race', 'competition', 'contest',
+    'match', 'game', 'sport', 'play', 'fun', 'entertainment', 'amusement',
+    'leisure', 'recreation', 'hobby', 'interest', 'pastime', 'activity',
+    'action', 'movement', 'motion', 'gestures', 'expression', 'communication',
+    'language', 'speech', 'voice', 'sound', 'noise', 'silence', 'quiet',
+    'peace', 'calm', 'tranquility', 'serenity', 'happiness', 'joy',
+    'bliss', 'ecstasy', 'delight', 'pleasure', 'satisfaction',
+    'contentment', 'fulfillment', 'success', 'achievement',
+    'accomplishment', 'victory', 'triumph', 'glory', 'fame', 'honor',
+    'respect', 'admiration', 'love', 'affection', 'friendship',
+    'camaraderie', 'brotherhood', 'sisterhood', 'unity', 'solidarity',
+    'cooperation', 'collaboration', 'partnership', 'alliance',
+    'coalition', 'union', 'association', 'organization', 'society',
+    'community', 'group', 'team', 'squad', 'crew', 'band', 'gang',
+    'mob', 'crowd', 'audience', 'public', 'people', 'humans',
+    'humanity', 'mankind', 'world', 'earth', 'planet', 'universe',
+    'cosmos', 'space', 'time', 'eternity', 'infinity', 'forever',
+    'always', 'never', 'nothing', 'everything', 'something', 'anything',
+    'snare', 'snares', 'kick', 'kicks',
     'cymbal', 'cymbals', 'trumpet', 'trumpets', 'sax', 'saxes', 'strings',
     'orchestra', 'orchestras', 'instrumental', 'instrumentals', 'beat', 'beats',
     'melody', 'melodies', 'chord', 'chords', 'note', 'notes', 'tempo', 'tempos',
@@ -78,7 +264,13 @@ class LyricsAgent:
         research_notes = f"Perplexity: {search_results}\n\nLightRAG: {rag_results}"
         state["research_notes"] = research_notes
 
-        # 2. Write
+        # 2. Determine Time Budget
+        # Use target duration from state if available, otherwise 240s
+        target_duration = state.get("target_duration", 240)
+        budget = calculate_lyric_budget(state["genre"], target_duration)
+        state["lyric_budget"] = budget
+
+        # 3. Write
         prompt = f"""Role: Expert AI Songwriter
 Goal: Produce unique, high-quality, raw, and 'street' lyrics for a {state['genre']} track.
 Artist: {state['artist_name']}
@@ -89,9 +281,18 @@ Musical Direction: {state.get('musical_direction', {})}
 User Direction (High Priority): {state.get('user_direction', 'No specific direction.')}
 Research Notes: {research_notes}
 
+TIME BUDGET (CRITICAL):
+- Target Duration: {budget['duration']} seconds
+- BPM: {budget['bpm']}
+- Seconds per Bar: {budget['seconds_per_bar']:.2f}
+- Total Bar Budget: ~{budget['total_bars']} bars
+- STRICTLY FOLLOW THIS STRUCTURE:
+{budget['structure_template']}
+
 Output Requirements:
 - PRIMARY GOAL: Strictly follow the User Direction (High Priority) regarding vocal types, themes, and specific avoidances.
 - STRUCTURE: You MUST use ACE-Step markers like [Intro], [Verse], [Chorus], [Bridge], [Outro], [Instrumental Break].
+- OUTRO: You MUST end the song with an [Outro] section containing 2-4 lines of simple, fading text (e.g., "Fading out...", "Echoes...") to allow the audio to resolve naturally.
 - BACKGROUND VOCALS: Use (parentheses) ONLY for sung background vocals or ad-libs (e.g., "(oh yeah)", "(I can't stop)").
 - INSTRUMENTAL DIRECTIONS: DO NOT include any instrumental or musical stage directions in parentheses (e.g., NO "(Guitar solo)", NO "(Epic drums)", NO "(Crushing riffs)"). Use [Instrumental Break] markers instead for non-vocal sections.
 - CONTENT: Make the lyrics raw, emotional, and authentic to the genre. Avoid cheesy rhymes.
