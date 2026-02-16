@@ -122,10 +122,10 @@ def calculate_lyric_budget(genre: str, duration: int = 240) -> LyricBudget:
         structure = (
             f"Generic Structure Template (Total {total_bars} bars):\n"
             f"- [Intro]: {intro_bars} bars\n"
-            f"- [Verse 1]: {verse_bars // 2} bars\n"
-            f"- [Chorus]: {chorus_bars // 2} bars\n"
-            f"- [Verse 2]: {verse_bars // 2} bars\n"
-            f"- [Chorus]: {chorus_bars // 2} bars\n"
+            f"- [Verse 1]: {max(1, verse_bars // 2)} bars\n"
+            f"- [Chorus]: {max(1, chorus_bars // 2)} bars\n"
+            f"- [Verse 2]: {max(1, verse_bars // 2)} bars\n"
+            f"- [Chorus]: {max(1, chorus_bars // 2)} bars\n"
             f"- [Bridge]: {bridge_bars} bars\n"
             f"- [Outro]: {outro_bars} bars"
         )
