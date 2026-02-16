@@ -1,6 +1,17 @@
 import random
 from typing import TypedDict, Dict, List, Any
 
+# Genre BPM Logic
+GENRE_BPM = {
+    "DUBSTEP": 140,
+    "DRUM AND BASS": 174,
+    "HOUSE": 128,
+    "TECHNO": 130,
+    "HIP HOP": 90,
+    "POP": 120,
+    "AMBIENT": 80
+}
+
 # Genre Duration Logic
 # Note: Order matters for partial matches. More specific genres (e.g. "PROG ROCK") should be checked before broader ones (e.g. "ROCK").
 DURATION_CATEGORIES = {
@@ -53,6 +64,79 @@ class SongParameters(TypedDict):
     sampler_name: str
     scheduler: str
     default_key: str
+
+class LyricBudget(TypedDict):
+    bpm: int
+    seconds_per_bar: float
+    total_bars: int
+    structure_template: str
+    duration: int
+
+def get_bpm(genre: str) -> int:
+    """Retrieves the BPM for a given genre, defaulting to 120."""
+    genre_upper = genre.upper().strip()
+    # Check exact match first
+    if genre_upper in GENRE_BPM:
+        return GENRE_BPM[genre_upper]
+
+    # Check partial match
+    for key, val in GENRE_BPM.items():
+        if key in genre_upper:
+            return val
+
+    return 120
+
+def calculate_lyric_budget(genre: str, duration: int = 240) -> LyricBudget:
+    """
+    Calculates the time budget and structure for lyrics based on genre and duration.
+    """
+    bpm = get_bpm(genre)
+    seconds_per_bar = (60 / bpm) * 4
+    total_bars = int(duration / seconds_per_bar)
+
+    # Structure Templates
+    genre_upper = genre.upper().strip()
+
+    if "DUBSTEP" in genre_upper:
+        # Dubstep specific template (approx 80 bars for 2.5 mins of content in 3.5 min song)
+        structure = (
+            "Dubstep Structure Template:\n"
+            "- [Intro]: 8 bars\n"
+            "- [Build-Up]: 8 bars\n"
+            "- [Drop 1]: 16 bars (High energy, minimal lyrics)\n"
+            "- [Breakdown/Verse]: 16 bars\n"
+            "- [Build-Up 2]: 8 bars\n"
+            "- [Drop 2]: 16 bars\n"
+            "- [Outro]: 8 bars (Fading out...)"
+        )
+    else:
+        # Generic Template scaled to bars
+        # ~10% Intro, ~40% Verses, ~30% Choruses, ~10% Bridge, ~10% Outro
+        intro_bars = max(4, int(total_bars * 0.1))
+        outro_bars = max(4, int(total_bars * 0.1))
+        remaining = total_bars - intro_bars - outro_bars
+        verse_bars = int(remaining * 0.4)
+        chorus_bars = int(remaining * 0.4)
+        bridge_bars = remaining - verse_bars - chorus_bars
+
+        structure = (
+            f"Generic Structure Template (Total {total_bars} bars):\n"
+            f"- [Intro]: {intro_bars} bars\n"
+            f"- [Verse 1]: {max(1, verse_bars // 2)} bars\n"
+            f"- [Chorus]: {max(1, chorus_bars // 2)} bars\n"
+            f"- [Verse 2]: {max(1, verse_bars // 2)} bars\n"
+            f"- [Chorus]: {max(1, chorus_bars // 2)} bars\n"
+            f"- [Bridge]: {bridge_bars} bars\n"
+            f"- [Outro]: {outro_bars} bars"
+        )
+
+    return {
+        "bpm": bpm,
+        "seconds_per_bar": seconds_per_bar,
+        "total_bars": total_bars,
+        "structure_template": structure,
+        "duration": duration
+    }
 
 def calculate_song_parameters(genre: str, lyrics: str) -> SongParameters:
     """
