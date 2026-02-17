@@ -18,7 +18,9 @@ class TestComfyClient(unittest.TestCase):
         mock_response.json.return_value = {"prompt_id": "123"}
         mock_post.return_value = mock_response
 
-        self.client.submit_prompt("lyrics", "tags")
+        # Mock opening the template file
+        with patch('builtins.open', unittest.mock.mock_open(read_data='{"3": {"inputs": {}}}')):
+            self.client.submit_prompt("lyrics", "tags")
 
         # Verify timeout is present in kwargs
         args, kwargs = mock_post.call_args

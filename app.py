@@ -18,6 +18,9 @@ from tools.metadata import scan_recent_songs, save_metadata
 from tools.utils import sanitize_input, sanitize_filename, normalize_keyscale
 from tools.audio_engineering import calculate_song_parameters
 from agents.director import generate_next_direction, generate_album_title, generate_song_title
+from tools.perplexity import PerplexityClient
+from tools.suggestions import scan_history, generate_suggestion
+from tools.band import load_band_profile, save_band_profile
 
 SONG_FILENAME_PATTERN = re.compile(r"song_(\d+)_")
 
@@ -65,7 +68,7 @@ class SongbirdWorkflow:
 
     def node_create_music(self, state: SongState):
         state["musical_direction"] = self.music_agent.generate_direction(
-            state["genre"], state["user_direction"]
+            state["genre"], state["user_direction"], state.get("trending_data")
         )
         return state
 
@@ -204,25 +207,9 @@ class SongbirdWorkflow:
 
         return state
 
-    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None, song_title=None, album_name=None, track_number=None, vocals="auto", vocal_strength=1.2, key=None):
+    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None, song_title=None, album_name=None, track_number=None, vocals="auto", vocal_strength=1.2, key=None, trending_data=None, poetic_mode=False):
         """
         Executes the Songbird workflow.
-
-        Args:
-            genre (str): Musical genre.
-            user_direction (str): User's description/direction.
-            seed (int, optional): Random seed.
-            artist_style (str, optional): Pre-defined artist style.
-            artist_background (str, optional): Pre-defined artist background.
-            song_title (str, optional): Title of the song.
-            album_name (str, optional): Name of the album.
-            track_number (int, optional): Track number in album.
-            vocals (str, optional): Vocal mode (female, male, instrumental, duet, choir, auto).
-            vocal_strength (float, optional): Strength of vocal steering prompts.
-            key (str, optional): Musical key (e.g., 'C Minor') to override defaults.
-
-        Returns:
-            dict: Final state of the workflow.
         """
         initial_state = {
             "genre": genre,
@@ -242,7 +229,9 @@ class SongbirdWorkflow:
             "track_number": track_number,
             "vocals": vocals,
             "vocal_strength": vocal_strength,
-            "key": key
+            "key": key,
+            "trending_data": trending_data,
+            "poetic_mode": poetic_mode
         }
         final_state = self.app.invoke(initial_state)
         save_metadata(final_state)
@@ -266,7 +255,33 @@ def main():
     parser.add_argument("--num-songs", type=int, default=6, help="Number of songs for the album (default: 6)")
     parser.add_argument("--base-direction", type=str, default="", help="Shared constraints for every song")
 
+    # New Features
+    parser.add_argument("--suggest", action="store_true", help="Suggest a song idea based on history")
+    parser.add_argument("--trending", action="store_true", help="Inject real-world trending data")
+    parser.add_argument("--artist", type=str, help="Specific reference artist name")
+    parser.add_argument("--band", type=str, help="Path to a band profile JSON to load")
+    parser.add_argument("--poetic", action="store_true", help="Enable poetic lyrics mode")
+
     args = parser.parse_args()
+
+    # --suggest logic
+    if args.suggest:
+        print("Analyzing your history...")
+        history = scan_history(args.output)
+        suggestion = generate_suggestion(history)
+
+        if suggestion:
+            print(f"\n--- Suggested Song Idea ---")
+            print(f"Genre: {suggestion.get('genre')}")
+            print(f"Direction: {suggestion.get('direction')}")
+            print(f"Rationale: {suggestion.get('rationale')}")
+
+            # Use the suggestion
+            args.genre = suggestion.get('genre', args.genre)
+            args.direction = suggestion.get('direction', args.direction)
+            print("\nProceeding with this suggestion...")
+        else:
+            print("Could not generate a suggestion. Proceeding with defaults.")
 
     if args.album and not args.theme:
         parser.error("--theme is required when --album is used.")
@@ -291,6 +306,34 @@ def main():
 
     flow = SongbirdWorkflow(output_dir=args.output)
 
+    # Gather Trending Data
+    trending_data = None
+    if args.trending:
+        print("Fetching trending data...")
+        perplexity = PerplexityClient()
+        query = f"What are the current trending lyrical themes and musical styles in {args.genre} music right now?"
+        try:
+            trending_data = perplexity.search(query)
+            logging.info(f"Trending Data: {trending_data}")
+        except Exception as e:
+            logging.warning(f"Failed to fetch trending data: {e}")
+
+    # Band / Artist Logic
+    persistent_artist_style = args.artist # If provided via CLI
+    persistent_artist_background = None
+    master_seed = int(time.time() * 1000)
+
+    if args.band:
+        band_profile = load_band_profile(args.band)
+        if band_profile:
+            print(f"Loaded Band: {band_profile.get('band_name')}")
+            master_seed = band_profile.get('master_seed', master_seed)
+            persistent_artist_style = band_profile.get('visual_style_prompt')
+            persistent_artist_background = band_profile.get('biography')
+            # Override genre if loaded from band? Maybe optional.
+            if band_profile.get('genre'):
+                args.genre = band_profile.get('genre')
+
     if args.album:
         # Determine album name
         album_name = args.album_name
@@ -306,11 +349,6 @@ def main():
         album_output_dir = os.path.join(args.output, safe_album_name)
         logging.info(f"Album output directory: {album_output_dir}")
         flow.set_output_dir(album_output_dir)
-
-        # Master Seed Logic for Consistent Audio
-        master_seed = int(time.time() * 1000)
-        persistent_artist_style = None
-        persistent_artist_background = None
 
         logging.info(f"Album Master Seed: {master_seed}")
 
@@ -351,7 +389,9 @@ def main():
                 track_number=i,
                 vocals=args.vocals,
                 vocal_strength=args.vocal_strength,
-                key=args.key
+                key=args.key,
+                trending_data=trending_data,
+                poetic_mode=args.poetic
             )
 
             # Capture artist info from the first song if not already captured, but only if successful
@@ -359,6 +399,10 @@ def main():
                 persistent_artist_style = final_state.get("artist_style")
                 persistent_artist_background = final_state.get("artist_background")
                 logging.info(f"Captured Persistent Artist Style: {persistent_artist_style}")
+
+            # Save band profile if it's the first successful song
+            if i == 1 and final_state.get('audio_path') and final_state['audio_path'] != "error":
+                save_band_profile(final_state, album_output_dir)
 
             if final_state.get('audio_path') and final_state['audio_path'] != "error":
                 print(f"Song {i} complete: {final_state['audio_path']}")
@@ -369,7 +413,18 @@ def main():
 
     else:
         # Standard single song mode
-        final_state = flow.run(args.genre, args.direction, vocals=args.vocals, vocal_strength=args.vocal_strength, key=args.key)
+        final_state = flow.run(
+            args.genre,
+            args.direction,
+            vocals=args.vocals,
+            vocal_strength=args.vocal_strength,
+            key=args.key,
+            seed=master_seed,
+            artist_style=persistent_artist_style,
+            artist_background=persistent_artist_background,
+            trending_data=trending_data,
+            poetic_mode=args.poetic
+        )
 
         print("Workflow Complete!")
         if final_state.get('cleaned_lyrics'):

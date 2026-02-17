@@ -248,7 +248,12 @@ class LyricsAgent:
         """Node: Research and Generate ACE-formatted lyrics."""
         
         # 1. Research (Combined)
-        query = f"Songwriting themes for {state['genre']} music in the style of {state['artist_style']}"
+        trending_data = state.get("trending_data", "")
+        if trending_data:
+            query = f"Using this trend: {trending_data}, find songwriting themes for {state['genre']} in the style of {state['artist_style']}"
+        else:
+            query = f"Songwriting themes for {state['genre']} music in the style of {state['artist_style']}"
+
         try:
             search_results = self.perplexity.search(query)
         except Exception as e:
@@ -271,8 +276,24 @@ class LyricsAgent:
         state["lyric_budget"] = budget
 
         # 3. Write
-        prompt = f"""Role: Expert AI Songwriter
+        poetic_mode = state.get("poetic_mode", False)
+
+        if poetic_mode:
+             role_description = f"""Role: Avant-Garde Poet & Lyricist
+Goal: Produce lyrics that elevate {state['genre']} into high art.
+INSTRUCTIONS (POETIC MODE):
+- Do not just rhyme. Focus on specific, concrete imagery over abstract feelings.
+- Use constraints (e.g., 'avoid the word *love*', 'focus on a specific object').
+- Create tension between the structure and the meaning.
+- Be surprising, subversive, and intellectually stimulating.
+- Avoid clichés and standard pop tropes.
+"""
+        else:
+             role_description = f"""Role: Expert AI Songwriter
 Goal: Produce unique, high-quality, raw, and 'street' lyrics for a {state['genre']} track.
+"""
+
+        prompt = f"""{role_description}
 Artist: {state['artist_name']}
 Background: {state['artist_background']}
 Style: {state['artist_style']}

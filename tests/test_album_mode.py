@@ -4,12 +4,6 @@ import sys
 import os
 import argparse
 
-# Robust Mocking: Mock missing dependencies before app imports
-sys.modules['langgraph'] = MagicMock()
-sys.modules['langgraph.graph'] = MagicMock()
-sys.modules['psycopg2'] = MagicMock()
-sys.modules['dotenv'] = MagicMock()
-
 # Add root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -22,7 +16,7 @@ class TestAlbumMode(unittest.TestCase):
     @patch('app.SongbirdWorkflow')
     @patch('app.scan_recent_songs')
     @patch('requests.post')
-    def test_album_mode_loop(self, mock_post, mock_scan, MockWorkflow):
+    def test_album_mode_loop(self, MockWorkflow, mock_scan, mock_post):
         # Setup mocks
         mock_flow_instance = MockWorkflow.return_value
         mock_flow_instance.run.return_value = {

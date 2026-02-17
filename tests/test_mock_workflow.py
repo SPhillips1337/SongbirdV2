@@ -13,19 +13,20 @@ class TestSongbirdWorkflow(unittest.TestCase):
 
     @patch('requests.post')
     @patch('requests.get')
-    def test_full_workflow(self, mock_get, mock_post):
+    def test_full_workflow(self, mock_post, mock_get):
         # Mock responses
 
         def side_effect_post(url, json=None, **kwargs):
             # Ollama Generate
             if "api/generate" in url:
-                prompt = json.get("prompt", "")
-                if "character profile" in prompt:
+                prompt = json.get("prompt", "") if json else ""
+                prompt_lower = prompt.lower()
+                if "character profile" in prompt_lower:
                     return MagicMock(json=lambda: {"response": "A cool artist persona."})
-                if "musical direction" in prompt:
+                if "musical direction" in prompt_lower:
                     # Return JSON string as expected by new logic
                     return MagicMock(json=lambda: {"response": '{"tags": "dark, moody", "bpm": 140, "keyscale": "D minor"}'})
-                if "Role: Expert AI Songwriter" in prompt:
+                if "expert ai songwriter" in prompt_lower or "lyrics" in prompt_lower:
                     return MagicMock(json=lambda: {"response": "[Intro]\nYeah yeah\n[Verse]\nLyrics here\n[Chorus]\nSing it loud"})
                 return MagicMock(json=lambda: {"response": "Generic response"})
 

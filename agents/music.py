@@ -9,12 +9,15 @@ class MusicAgent:
         self.base_url = OLLAMA_BASE_URL
         self.model = LYRIC_MODEL
 
-    def generate_direction(self, genre, user_direction):
+    def generate_direction(self, genre, user_direction, trending_data=None):
         system_prompt = MUSIC_PROMPTS.get(genre.upper(), MUSIC_PROMPTS.get("POP", "Default POP Prompt"))
         
+        trending_context = f"TRENDING DATA (Incorporate if relevant): {trending_data}\n\n" if trending_data else ""
+
         user_prompt = (
             f"PRIMARY INSTRUCTION (USER DIRECTION): {user_direction}\n\n"
             f"GENRE CONTEXT: {genre}\n\n"
+            f"{trending_context}"
             "Task: Create a musical direction for this song.\n"
             "INSTRUCTIONS:\n"
             "1. STRICTLY ADHERE to all stylistic details, vocals, and instruments mentioned in the PRIMARY INSTRUCTION.\n"

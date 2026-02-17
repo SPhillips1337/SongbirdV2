@@ -1,6 +1,7 @@
 import requests
 import logging
-from config import ARTIST_STYLES, OLLAMA_BASE_URL, ARTIST_MODEL, DEFAULT_ARTIST_STYLE
+import random
+from config import ARTIST_STYLES, GENRE_ARTISTS, OLLAMA_BASE_URL, ARTIST_MODEL, DEFAULT_ARTIST_STYLE
 
 
 class ArtistAgent:
@@ -36,6 +37,14 @@ class ArtistAgent:
             return f"A mysterious singer in the {genre} scene."
 
     def select_artist_style(self, genre, user_direction=None):
-        # We could use an LLM here for more dynamic style selection based on direction,
-        # but for now, we'll stick to the mapping or a default.
-        return ARTIST_STYLES.get(genre.upper(), DEFAULT_ARTIST_STYLE)
+        # 1. Check if we have a list of artists for this genre (Priority for variety)
+        artists = GENRE_ARTISTS.get(genre.upper())
+        if artists:
+            return random.choice(artists)
+
+        # 2. Check if we have a hardcoded style (Legacy fallback)
+        if genre.upper() in ARTIST_STYLES:
+             return ARTIST_STYLES[genre.upper()]
+
+        # 3. Fallback
+        return DEFAULT_ARTIST_STYLE
