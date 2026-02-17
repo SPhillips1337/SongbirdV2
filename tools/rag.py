@@ -3,21 +3,11 @@ import os
 import logging
 
 
-from tools.cache import CacheManager
-
-
 class RAGTool:
     def __init__(self):
         self.lightrag_url = os.getenv("LIGHTRAG_URL", "http://localhost:9621")
-        self.cache = CacheManager()
 
     def query_lightrag(self, query):
-        # Check cache first
-        cache_key = f"rag:{query}"
-        cached_result = self.cache.get(cache_key)
-        if cached_result:
-            return cached_result
-
         api_key = os.getenv("LIGHTRAG_API_KEY")
         headers = {
             "accept": "application/json",
@@ -40,10 +30,7 @@ class RAGTool:
                 timeout=180 # Increased to 30s
             )
             response.raise_for_status()
-            result = response.json().get("output", "")
-            if result:
-                self.cache.set(cache_key, result)
-            return result
+            return response.json().get("output", "")
         except requests.exceptions.Timeout:
             logging.error(f"Error querying LightRAG: Connection timed out after 30s. Check if the server at {self.lightrag_url} is reachable.")
             return "Connection timeout"

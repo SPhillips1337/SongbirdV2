@@ -21,7 +21,6 @@ class TestSongbirdWorkflow(unittest.TestCase):
             if "api/generate" in url:
                 prompt = json.get("prompt", "") if json else ""
                 prompt_lower = prompt.lower()
-                print(f"DEBUG: POST to {url} with prompt: {prompt[:50]}...")
                 if "character profile" in prompt_lower:
                     mock_resp = MagicMock()
                     mock_resp.json.return_value = {"response": "A cool artist persona."}

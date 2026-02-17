@@ -5,7 +5,7 @@ import shutil
 import time
 from unittest.mock import MagicMock, patch
 from tools.cache import CacheManager
-from tools.band import save_band_profile, load_band_profile
+from tools.band import create_band_profile, load_band
 from tools.suggestions import scan_history
 from config import GENRE_ARTISTS, ARTIST_STYLES
 from agents.artist import ArtistAgent
@@ -29,20 +29,24 @@ class TestFeatures(unittest.TestCase):
         self.assertIsNone(cache.get("key"))
 
     def test_band_profile(self):
-        state = {
-            "artist_name": "Test Band",
-            "seed": 12345,
-            "genre": "ROCK",
-            "artist_background": "A cool band.",
-            "artist_style": "Test Style"
-        }
-        save_band_profile(state, self.test_dir)
-        profile_path = os.path.join(self.test_dir, "band_profile.json")
+        name = "Test Band"
+        genre = "ROCK"
+        sub_genre = "Alt"
+        seed = 12345
+        bio = "A cool band."
+        style = "Test Style"
+
+        # Use new create_band_profile
+        create_band_profile(self.test_dir, name, genre, sub_genre, seed, bio, style)
+
+        # Path is now inside Bands subdirectory
+        profile_path = os.path.join(self.test_dir, "Bands", "Test_Band.json")
         self.assertTrue(os.path.exists(profile_path))
 
-        loaded = load_band_profile(profile_path)
-        self.assertEqual(loaded["band_name"], "Test Band")
-        self.assertEqual(loaded["master_seed"], 12345)
+        # Use new load_band
+        loaded = load_band(self.test_dir, name)
+        self.assertEqual(loaded["name"], name)
+        self.assertEqual(loaded["master_seed"], seed)
 
     def test_suggestions_scan(self):
         # Create fake metadata files

@@ -2,44 +2,18 @@ import requests
 import logging
 import random
 from config import ARTIST_STYLES, GENRE_ARTISTS, OLLAMA_BASE_URL, ARTIST_MODEL, DEFAULT_ARTIST_STYLE
-from tools.perplexity import PerplexityClient
-from tools.rag import RAGTool
 
 
 class ArtistAgent:
     def __init__(self):
         self.base_url = OLLAMA_BASE_URL
         self.model = ARTIST_MODEL
-        self.perplexity = PerplexityClient()
-        self.rag = RAGTool()
 
-    def research_artist(self, artist_name):
-        """
-        Researches the artist's style, history, and persona using Perplexity and RAG.
-        Strictly focused on the reference artist.
-        """
-        if not artist_name:
-            return "No specific reference artist."
-
-        query = f"Provide a detailed biography and musical style overview of the artist: {artist_name}. Focus on their public persona, career highlights, and visual aesthetic."
-        
-        perplexity_results = ""
-        try:
-            perplexity_results = self.perplexity.search(query)
-        except Exception as e:
-            logging.error(f"Perplexity search failed in ArtistAgent: {e}")
-
-        rag_results = self.rag.query_lightrag(f"Details about artist: {artist_name}")
-        
-        return f"Perplexity: {perplexity_results}\n\nGraphRAG: {rag_results}"
-
-    def generate_persona(self, genre, user_direction=None, research_notes=None):
-        prompt = f"""Generate a detailed character profile for a {genre} song protagonist. 
-        The persona should be consistent with the following research notes about the reference artist.
+    def generate_persona(self, genre, user_direction=None):
+        prompt = f"""Generate a detailed character profile for a {genre} song protagonist. The persona should be a woman in their early 20s to 30s.
 
         GENRE: {genre}
         USER DIRECTION: {user_direction if user_direction else "No specific direction provided."}
-        ARTIST RESEARCH: {research_notes if research_notes else "General genre-based persona."}
 
         The profile must include:
         A classic, {genre} star two-part name like .

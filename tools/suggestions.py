@@ -7,8 +7,6 @@ import requests
 from collections import Counter
 from config import OLLAMA_BASE_URL, ALBUM_MODEL
 
-from tools.rag import RAGTool
-
 def scan_history(output_dir):
     """
     Scans all metadata files in the output directory to analyze user history.
@@ -51,30 +49,21 @@ def scan_history(output_dir):
 
 def generate_suggestion(history):
     """
-    Generates a new song suggestion based on user history using GraphRAG.
+    Generates a new song suggestion based on user history.
     """
-    rag = RAGTool()
-    
-    # Analyze history patterns via RAG if available, otherwise fallback to basic history
-    rag_query = "What are the user's most frequent genres, themes, and successful generations in their songbird history?"
-    rag_context = rag.query_lightrag(rag_query)
-    
-    prompt = f"""Based on the user's history and GraphRAG context, suggest a creative new song idea.
+    if not history or history["total_songs"] == 0:
+        return None
 
-    Basic History:
-    - Top Genres: {', '.join(history['top_genres']) if history else 'None'}
-    - Top Artist Styles: {', '.join(history['top_styles']) if history else 'None'}
-    
-    GraphRAG Insights:
-    {rag_context}
+    prompt = f"""Based on the user's history, suggest a creative new song idea.
+
+    User History:
+    - Top Genres: {', '.join(history['top_genres'])}
+    - Top Artist Styles: {', '.join(history['top_styles'])}
 
     Task:
-    1. Analyze the patterns in the history and RAG insights.
+    1. Analyze the patterns in the history.
     2. Propose a new song idea that fits the user's taste but offers a fresh twist.
     3. Output the result in a strict JSON format with keys: 'genre', 'direction', 'rationale'.
-    
-    Example Output:
-    "Based on your love for [Genre A] and [Theme B], generating a new track about [New Concept]..." (This goes in 'rationale')
 
     Output JSON only.
     """

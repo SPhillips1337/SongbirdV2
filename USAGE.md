@@ -52,11 +52,6 @@ LIGHTRAG_URL=http://192.168.1.y:9621
 | `--album-name` | Custom album name | (Auto-generated) |
 | `--num-songs` | Number of songs in album | `6` |
 | `--base-direction` | Shared constraints for every song in album | None |
-| `--suggest` | Suggest a song idea based on history | `False` |
-| `--trending` | Inject real-world trending data | `False` |
-| `--artist` | Specific reference artist name | None |
-| `--band` | Path to a band profile JSON to load | None |
-| `--poetic` | Enable poetic lyrics mode | `False` |
 
 ### Album Mode
 
@@ -85,37 +80,6 @@ You can strictly enforce the type of vocals generated using the `--vocals` argum
 ```bash
 python app.py --genre ROCK --vocals female --direction "Power ballad"
 ```
-
-## Advanced Features (Virtual Artist Upgrade)
-
-### 1. Suggestion Engine
-Don't know what to write? Let Songbird analyze your history and propose a fresh idea.
-```bash
-python app.py --suggest
-```
-
-### 2. Trending Intelligence
-Inject real-world data into your song.
-```bash
-python app.py --trending --genre DUBSTEP
-```
-
-### 3. Poetry Mode
-Elevate your lyrics to high art (Hollis Robbins approach).
-```bash
-python app.py --poetic --genre INDIE --direction "A song about a rusted key"
-```
-
-### 4. Virtual Band Persistence
-Create a band, then bring them back for a second album.
-1. **Create the Band**:
-   ```bash
-   python app.py --album --theme "Cyberpunk dystopia" --genre "SYNTHWAVE"
-   ```
-2. **Re-use the Band**:
-   ```bash
-   python app.py --band output/Cyberpunk_dystopia/band_profile.json --direction "The sequel album"
-   ```
 
 ### Examples
 

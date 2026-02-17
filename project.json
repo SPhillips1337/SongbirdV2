@@ -4,22 +4,17 @@
     "name": "Songbird",
     "slug": "songbird",
     "summary": "Local agentic workflow for AI-driven song creation, V2 is migrated from the N8N V1 original version to LangGraph to allow for AI manipluation as code.",
-    "version": "2.1",
+    "version": "2.0",
     "tech_stack": {
         "language": "Python",
         "orchestrator": "LangGraph",
         "llm_engine": "Ollama",
         "audio_generation": "ComfyUI (ACE Step)",
         "research": "Perplexity API",
-        "rag": "LightRAG",
-        "caching": "Local JSON Cache"
+        "rag": "LightRAG"
     },
     "primary_features": [
         "Multi-agent orchestration (Artist, Music, Lyrics)",
-        "GraphRAG-powered Suggestion Engine",
-        "Real-time Trending Intelligence",
-        "Virtual Band Persistence",
-        "Poetry Mode (Hollis Robbins approach)",
         "Fictional artist persona generation",
         "Musical direction synthesis (BPM, mood, instruments)",
         "Multi-stage lyric generation (Research, Draft, Refine)",

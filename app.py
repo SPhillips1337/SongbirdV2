@@ -4,6 +4,7 @@ import argparse
 import logging
 import re
 import config
+import random
 from config import DEFAULT_NEGATIVE_PROMPT_SUFFIX
 from dotenv import load_dotenv
 load_dotenv()
@@ -20,7 +21,13 @@ from tools.audio_engineering import calculate_song_parameters
 from agents.director import generate_next_direction, generate_album_title, generate_song_title
 from tools.perplexity import PerplexityClient
 from tools.suggestions import scan_history, generate_suggestion
-from tools.band import load_band_profile, save_band_profile
+from tools.band import (
+    load_band,
+    create_band_profile,
+    update_discography,
+    copy_band_profile_to_album,
+    ensure_band_directory
+)
 
 SONG_FILENAME_PATTERN = re.compile(r"song_(\d+)_")
 
@@ -56,39 +63,21 @@ class SongbirdWorkflow:
         os.makedirs(output_dir, exist_ok=True)
 
     def node_create_artist(self, state: SongState):
-        # Determine reference artist
-        reference_artist = state.get("artist_name") # Could be from --artist arg
-        
-        # 1. Research Artist
-        if not state.get("artist_research"):
-            state["artist_research"] = self.artist_agent.research_artist(reference_artist)
-
-        # 2. Select Style if not provided
+        # Check if artist style/background are already provided (e.g. in Album Mode)
         if not state.get("artist_style"):
-            # This logic will be moved or assisted by the select_artist_style update in agents
             state["artist_style"] = self.artist_agent.select_artist_style(state["genre"], state["user_direction"])
 
-        # 3. Generate Persona
         if not state.get("artist_background"):
-            state["artist_background"] = self.artist_agent.generate_persona(
-                state["genre"], 
-                state["user_direction"], 
-                research_notes=state.get("artist_research")
-            )
+            state["artist_background"] = self.artist_agent.generate_persona(state["genre"], state["user_direction"])
+
+        if not state.get("artist_name"):
+            state["artist_name"] = "Songbird" # Placeholder if not set
 
         return state
 
     def node_create_music(self, state: SongState):
-        # 1. Research Music (Genre/Technical)
-        if not state.get("music_research"):
-            state["music_research"] = self.music_agent.research_music(state["genre"])
-
-        # 2. Generate Direction
         state["musical_direction"] = self.music_agent.generate_direction(
-            state["genre"], 
-            state["user_direction"], 
-            state.get("trending_data"),
-            music_research=state.get("music_research")
+            state["genre"], state["user_direction"], state.get("trending_data")
         )
         return state
 
@@ -227,14 +216,14 @@ class SongbirdWorkflow:
 
         return state
 
-    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None, song_title=None, album_name=None, track_number=None, vocals="auto", vocal_strength=1.2, key=None, trending_data=None, poetic_mode=False):
+    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None, song_title=None, album_name=None, track_number=None, vocals="auto", vocal_strength=1.2, key=None, trending_data=None, poetic_mode=False, artist_name=None):
         """
         Executes the Songbird workflow.
         """
         initial_state = {
             "genre": genre,
             "user_direction": user_direction,
-            "artist_name": None,
+            "artist_name": artist_name,
             "artist_background": artist_background,
             "artist_style": artist_style,
             "seed": seed,
@@ -251,10 +240,7 @@ class SongbirdWorkflow:
             "vocal_strength": vocal_strength,
             "key": key,
             "trending_data": trending_data,
-            "poetic_mode": poetic_mode,
-            "artist_research": None,
-            "music_research": None,
-            "lyrics_research": None
+            "poetic_mode": poetic_mode
         }
         final_state = self.app.invoke(initial_state)
         save_metadata(final_state)
@@ -282,7 +268,7 @@ def main():
     parser.add_argument("--suggest", action="store_true", help="Suggest a song idea based on history")
     parser.add_argument("--trending", action="store_true", help="Inject real-world trending data")
     parser.add_argument("--artist", type=str, help="Specific reference artist name")
-    parser.add_argument("--band", type=str, help="Path to a band profile JSON to load")
+    parser.add_argument("--band", type=str, help="Centralized band profile name to load or create")
     parser.add_argument("--poetic", action="store_true", help="Enable poetic lyrics mode")
 
     args = parser.parse_args()
@@ -324,10 +310,15 @@ def main():
     args.direction = sanitize_input(args.direction)
     if args.artist:
         args.artist = sanitize_input(args.artist)
+    if args.band:
+        args.band = sanitize_input(args.band)
 
     # Configure logging
     log_level = logging.INFO if args.verbose else logging.WARNING
     logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    # Ensure bands directory exists
+    ensure_band_directory(args.output)
 
     flow = SongbirdWorkflow(output_dir=args.output)
 
@@ -343,27 +334,55 @@ def main():
         except Exception as e:
             logging.warning(f"Failed to fetch trending data: {e}")
 
-    # Band / Artist Logic
-    persistent_artist_style = args.artist # If provided via CLI
+    # Centralized Band Logic
+    persistent_artist_style = args.artist # If provided via CLI manually
     persistent_artist_background = None
     master_seed = int(time.time() * 1000)
-
-    # 4. Expanded Artist Variety Logic
-    if not persistent_artist_style and not args.band:
-        temp_agent = ArtistAgent()
-        persistent_artist_style = temp_agent.select_artist_style(args.genre)
-        print(f"Randomly selected reference artist: {persistent_artist_style}")
+    band_name_for_flow = None
 
     if args.band:
-        band_profile = load_band_profile(args.band)
+        print(f"Checking for band profile: {args.band}")
+        band_profile = load_band(args.output, args.band)
+
         if band_profile:
-            print(f"Loaded Band: {band_profile.get('band_name')}")
+            # Case A: Existing Band
+            print(f"Loaded Band: {band_profile.get('name')}")
             master_seed = band_profile.get('master_seed', master_seed)
-            persistent_artist_style = band_profile.get('visual_style_prompt')
+            persistent_artist_style = band_profile.get('visual_style')
             persistent_artist_background = band_profile.get('biography')
-            # Override genre if loaded from band? Maybe optional.
+            band_name_for_flow = band_profile.get('name')
+            # Override genre if loaded from band?
             if band_profile.get('genre'):
+                print(f"Using band genre: {band_profile.get('genre')}")
                 args.genre = band_profile.get('genre')
+        else:
+            # Case B: New Band
+            print(f"Creating new band profile for: {args.band}")
+
+            # Generate Persona using Artist Agent
+            print("Generating band persona...")
+            artist_agent = ArtistAgent()
+            generated_bio = artist_agent.generate_persona(args.genre, args.direction)
+
+            # Determine visual style
+            visual_style = args.artist if args.artist else artist_agent.select_artist_style(args.genre)
+
+            # Create Profile
+            band_profile = create_band_profile(
+                args.output,
+                name=args.band,
+                genre=args.genre,
+                sub_genre="", # Could be inferred or added later
+                master_seed=master_seed,
+                biography=generated_bio,
+                visual_style=visual_style
+            )
+
+            if band_profile:
+                persistent_artist_style = visual_style
+                persistent_artist_background = generated_bio
+                band_name_for_flow = args.band
+                print(f"Band '{args.band}' created successfully.")
 
     if args.album:
         # Determine album name
@@ -422,23 +441,27 @@ def main():
                 vocal_strength=args.vocal_strength,
                 key=args.key,
                 trending_data=trending_data,
-                poetic_mode=args.poetic
+                poetic_mode=args.poetic,
+                artist_name=band_name_for_flow
             )
 
             # Capture artist info from the first song if not already captured, but only if successful
+            # (Note: In centralized mode, we already have this, but this handles non-band mode too)
             if persistent_artist_style is None and final_state.get('audio_path') and final_state['audio_path'] != "error":
                 persistent_artist_style = final_state.get("artist_style")
                 persistent_artist_background = final_state.get("artist_background")
                 logging.info(f"Captured Persistent Artist Style: {persistent_artist_style}")
 
-            # Save band profile if it's the first successful song
-            if i == 1 and final_state.get('audio_path') and final_state['audio_path'] != "error":
-                save_band_profile(final_state, album_output_dir)
-
             if final_state.get('audio_path') and final_state['audio_path'] != "error":
                 print(f"Song {i} complete: {final_state['audio_path']}")
             else:
                 print(f"Song {i} failed to generate audio.")
+
+        # Post-Album Updates for Band
+        if args.band:
+            print("Updating band discography...")
+            update_discography(args.output, args.band, album_name)
+            copy_band_profile_to_album(args.output, args.band, album_output_dir)
 
         print("\nAlbum Generation Complete!")
 
@@ -454,7 +477,8 @@ def main():
             artist_style=persistent_artist_style,
             artist_background=persistent_artist_background,
             trending_data=trending_data,
-            poetic_mode=args.poetic
+            poetic_mode=args.poetic,
+            artist_name=band_name_for_flow
         )
 
         print("Workflow Complete!")
