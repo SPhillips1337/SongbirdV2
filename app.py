@@ -154,18 +154,18 @@ class SongbirdWorkflow:
         final_cfg = params["cfg"]
 
         # QUALITY SAFETY LOGIC:
-        # If strict vocal control (negative prompts) is used, we MUST cap CFG low to avoid "Karaoke" artifacts.
+        # If strict vocal control (negative prompts) is used, we lower CFG slightly to avoid "Karaoke" artifacts.
         if is_strict_vocal_mode:
-            final_cfg = 1.5
-            logging.info(f"Strict Vocal Control Active: Forcing CFG to 1.5 to prevent artifacts.")
+            final_cfg = min(final_cfg, 3.5)
+            logging.info(f"Strict Vocal Control Active: Capping CFG to {final_cfg:.2f} to prevent artifacts.")
         elif vocals != "auto":
-            final_cfg = final_cfg * 0.85
-            logging.info(f"Vocal control active: Lowering CFG to {final_cfg:.2f}")
+            final_cfg = final_cfg * 0.9
+            logging.info(f"Vocal control active: Adjusting CFG to {final_cfg:.2f}")
 
-        # Hard cap CFG at 3.0
-        if final_cfg > 3.0:
-            final_cfg = 3.0
-            logging.info(f"CFG Hard-capped at 3.0")
+        # Soft cap CFG at 5.0 to prevent over-conditioning
+        if final_cfg > 5.0:
+            final_cfg = 5.0
+            logging.info(f"CFG soft-capped at 5.0")
 
         logging.info(f"Optimizing for [{state['genre']}]: Duration {params['duration']}s, Sampler {params['sampler_name']}, Scheduler {params['scheduler']}, Key {keyscale}")
 
@@ -181,7 +181,8 @@ class SongbirdWorkflow:
             cfg=final_cfg,
             sampler_name=params["sampler_name"],
             scheduler=params["scheduler"],
-            negative_prompt=negative_prompt
+            negative_prompt=negative_prompt,
+            cfg_scale=params.get("cfg_scale", 4.0)
         )
 
         if result and "prompt_id" in result:

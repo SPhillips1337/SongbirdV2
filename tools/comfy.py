@@ -12,7 +12,7 @@ class ComfyClient:
         self.timeout = timeout
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird", seed=None, steps=8, cfg=1, sampler_name="euler", scheduler="simple", negative_prompt="", min_p=0):
+    def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird", seed=None, steps=50, cfg=4.0, sampler_name="euler", scheduler="sgm_uniform", negative_prompt="", min_p=0, cfg_scale=4.0):
         # Load workflow template
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         template_path = os.path.join(base_dir, "audio_ace_step_1_5_checkpoint.json")
@@ -45,6 +45,7 @@ class ComfyClient:
             inputs["duration"] = duration
             inputs["keyscale"] = keyscale
             inputs["min_p"] = min_p
+            inputs["cfg_scale"] = cfg_scale
 
         # Update EmptyAceStep1.5LatentAudio (Node 98)
         if "98" in prompt:
