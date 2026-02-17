@@ -247,30 +247,27 @@ class LyricsAgent:
     def write_lyrics_node(self, state):
         """Node: Research and Generate ACE-formatted lyrics."""
         
-        # 1. Research (Combined)
+        # 1. Research (Focused on Theme and Trending)
+        theme = state.get("user_direction", "General themes")
         trending_data = state.get("trending_data", "")
+        
+        query = f"Provide poetic themes and lyrical inspirations for a song about: {theme}."
         if trending_data:
-            query = f"Using this trend: {trending_data}, find songwriting themes for {state['genre']} in the style of {state['artist_style']}"
-        else:
-            query = f"Songwriting themes for {state['genre']} music in the style of {state['artist_style']}"
+            query += f" Incorporate these current trends: {trending_data}."
 
         try:
             search_results = self.perplexity.search(query)
         except Exception as e:
-            logging.error(f"Perplexity search failed: {e}")
+            logging.error(f"Perplexity search failed in LyricsAgent: {e}")
             search_results = "No search results."
 
-        try:
-            rag_results = self.rag.query_lightrag(f"Lyrics by {state['artist_style']}")
-        except Exception as e:
-            logging.error(f"RAG query failed: {e}")
-            rag_results = "No RAG results."
-
-        research_notes = f"Perplexity: {search_results}\n\nLightRAG: {rag_results}"
-        state["research_notes"] = research_notes
+        rag_results = self.rag.query_lightrag(f"Lyrical themes related to: {theme}")
+        
+        # Combine lyrics research. Note: Artist and Music research are passed in state from previous nodes.
+        research_notes = f"Theme/Trending Research: {search_results}\n\nGraphRAG: {rag_results}"
+        state["lyrics_research"] = research_notes
 
         # 2. Determine Time Budget
-        # Use target duration from state if available, otherwise 240s
         target_duration = state.get("target_duration", 240)
         budget = calculate_lyric_budget(state["genre"], target_duration)
         state["lyric_budget"] = budget
@@ -279,18 +276,19 @@ class LyricsAgent:
         poetic_mode = state.get("poetic_mode", False)
 
         if poetic_mode:
-             role_description = f"""Role: Avant-Garde Poet & Lyricist
+             role_description = f"""Role: Avant-Garde Poet & Lyricist (Hollis Robbins Approach)
 Goal: Produce lyrics that elevate {state['genre']} into high art.
 INSTRUCTIONS (POETIC MODE):
-- Do not just rhyme. Focus on specific, concrete imagery over abstract feelings.
-- Use constraints (e.g., 'avoid the word *love*', 'focus on a specific object').
-- Create tension between the structure and the meaning.
+- **Do not just rhyme.** Focus on specific, concrete imagery over abstract feelings.
+- Use constraints (e.g., 'write a sonnet', 'avoid the word love', 'focus on a single object').
+- Create tension between the form/structure and the meaning.
 - Be surprising, subversive, and intellectually stimulating.
-- Avoid clichés and standard pop tropes.
+- Avoid all pop clichés, standard tropes, and "sing-song" rhythms.
+- Treat lyrics as modern poetry set to rhythm.
 """
         else:
              role_description = f"""Role: Expert AI Songwriter
-Goal: Produce unique, high-quality, raw, and 'street' lyrics for a {state['genre']} track.
+Goal: Produce unique, high-quality, raw, and authentic lyrics for a {state['genre']} track.
 """
 
         prompt = f"""{role_description}

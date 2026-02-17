@@ -2,21 +2,44 @@ import requests
 import json
 import logging
 from config import MUSIC_PROMPTS, OLLAMA_BASE_URL, LYRIC_MODEL
+from tools.perplexity import PerplexityClient
+from tools.rag import RAGTool
 
 
 class MusicAgent:
     def __init__(self):
         self.base_url = OLLAMA_BASE_URL
         self.model = LYRIC_MODEL
+        self.perplexity = PerplexityClient()
+        self.rag = RAGTool()
 
-    def generate_direction(self, genre, user_direction, trending_data=None):
+    def research_music(self, genre):
+        """
+        Researches technical production styles and genre-specific elements.
+        Strictly focused on the genre and music theory/production.
+        """
+        query = f"Provide a detailed technical breakdown of production styles, common instruments, BPM ranges, and music theory elements for {genre} music."
+        
+        perplexity_results = ""
+        try:
+            perplexity_results = self.perplexity.search(query)
+        except Exception as e:
+            logging.error(f"Perplexity search failed in MusicAgent: {e}")
+
+        rag_results = self.rag.query_lightrag(f"Production styles for {genre}")
+        
+        return f"Perplexity: {perplexity_results}\n\nGraphRAG: {rag_results}"
+
+    def generate_direction(self, genre, user_direction, trending_data=None, music_research=None):
         system_prompt = MUSIC_PROMPTS.get(genre.upper(), MUSIC_PROMPTS.get("POP", "Default POP Prompt"))
         
         trending_context = f"TRENDING DATA (Incorporate if relevant): {trending_data}\n\n" if trending_data else ""
+        research_context = f"TECHNICAL RESEARCH: {music_research}\n\n" if music_research else ""
 
         user_prompt = (
             f"PRIMARY INSTRUCTION (USER DIRECTION): {user_direction}\n\n"
             f"GENRE CONTEXT: {genre}\n\n"
+            f"{research_context}"
             f"{trending_context}"
             "Task: Create a musical direction for this song.\n"
             "INSTRUCTIONS:\n"

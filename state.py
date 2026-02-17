@@ -23,3 +23,7 @@ class SongState(TypedDict):
     poetic_mode: Optional[bool]
     band_profile: Optional[dict]
     suggested_prompt: Optional[dict]
+    artist_research: Optional[str]
+    music_research: Optional[str]
+    lyrics_research: Optional[str]
+    lyric_budget: Optional[dict]

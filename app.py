@@ -56,19 +56,39 @@ class SongbirdWorkflow:
         os.makedirs(output_dir, exist_ok=True)
 
     def node_create_artist(self, state: SongState):
-        # Check if artist style/background are already provided (e.g. in Album Mode)
+        # Determine reference artist
+        reference_artist = state.get("artist_name") # Could be from --artist arg
+        
+        # 1. Research Artist
+        if not state.get("artist_research"):
+            state["artist_research"] = self.artist_agent.research_artist(reference_artist)
+
+        # 2. Select Style if not provided
         if not state.get("artist_style"):
+            # This logic will be moved or assisted by the select_artist_style update in agents
             state["artist_style"] = self.artist_agent.select_artist_style(state["genre"], state["user_direction"])
 
+        # 3. Generate Persona
         if not state.get("artist_background"):
-            state["artist_background"] = self.artist_agent.generate_persona(state["genre"], state["user_direction"])
+            state["artist_background"] = self.artist_agent.generate_persona(
+                state["genre"], 
+                state["user_direction"], 
+                research_notes=state.get("artist_research")
+            )
 
-        state["artist_name"] = "Songbird" # Placeholder for name extraction
         return state
 
     def node_create_music(self, state: SongState):
+        # 1. Research Music (Genre/Technical)
+        if not state.get("music_research"):
+            state["music_research"] = self.music_agent.research_music(state["genre"])
+
+        # 2. Generate Direction
         state["musical_direction"] = self.music_agent.generate_direction(
-            state["genre"], state["user_direction"], state.get("trending_data")
+            state["genre"], 
+            state["user_direction"], 
+            state.get("trending_data"),
+            music_research=state.get("music_research")
         )
         return state
 
@@ -231,7 +251,10 @@ class SongbirdWorkflow:
             "vocal_strength": vocal_strength,
             "key": key,
             "trending_data": trending_data,
-            "poetic_mode": poetic_mode
+            "poetic_mode": poetic_mode,
+            "artist_research": None,
+            "music_research": None,
+            "lyrics_research": None
         }
         final_state = self.app.invoke(initial_state)
         save_metadata(final_state)
@@ -324,6 +347,12 @@ def main():
     persistent_artist_style = args.artist # If provided via CLI
     persistent_artist_background = None
     master_seed = int(time.time() * 1000)
+
+    # 4. Expanded Artist Variety Logic
+    if not persistent_artist_style and not args.band:
+        temp_agent = ArtistAgent()
+        persistent_artist_style = temp_agent.select_artist_style(args.genre)
+        print(f"Randomly selected reference artist: {persistent_artist_style}")
 
     if args.band:
         band_profile = load_band_profile(args.band)
