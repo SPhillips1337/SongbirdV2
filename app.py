@@ -299,6 +299,8 @@ def main():
     if args.base_direction:
         args.base_direction = sanitize_input(args.base_direction)
     args.direction = sanitize_input(args.direction)
+    if args.artist:
+        args.artist = sanitize_input(args.artist)
 
     # Configure logging
     log_level = logging.INFO if args.verbose else logging.WARNING

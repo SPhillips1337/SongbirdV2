@@ -45,6 +45,9 @@ class TestPerplexityClient(unittest.TestCase):
     def test_perplexica_search(self, mock_post):
         # Setup mock for Perplexica
         os.environ["PERPLEXICA_URL"] = "http://localhost:3000"
+        # Unset API key to force local usage
+        if "PERPLEXITY_API_KEY" in os.environ:
+            del os.environ["PERPLEXITY_API_KEY"]
 
         # Mock cache for this instance too
         with patch('tools.cache.CacheManager'):

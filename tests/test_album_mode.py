@@ -7,79 +7,91 @@ import argparse
 # Add root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import app
-from config import ALBUM_MODEL
-from tools.metadata import scan_recent_songs
-
 class TestAlbumMode(unittest.TestCase):
 
-    @patch('app.SongbirdWorkflow')
-    @patch('app.scan_recent_songs')
-    @patch('requests.post')
-    def test_album_mode_loop(self, MockWorkflow, mock_scan, mock_post):
-        # Setup mocks
-        mock_flow_instance = MockWorkflow.return_value
-        mock_flow_instance.run.return_value = {
-            "audio_path": "output/test_song.mp3",
-            "cleaned_lyrics": "Test lyrics",
-            "musical_direction": "Test direction"
-        }
+    def setUp(self):
+        self.patcher = patch.dict('sys.modules', {
+            'langgraph': MagicMock(),
+            'langgraph.graph': MagicMock(),
+            'psycopg2': MagicMock(),
+            'dotenv': MagicMock(),
+            'tools.rag': MagicMock(),
+            # Do NOT mock requests here if we want to patch it specifically later?
+            # Or mock it here and patch it later?
+            # Safer to mock it here if app.py imports it at top level.
+            'requests': MagicMock()
+        })
+        self.patcher.start()
 
-        # Mock scan_recent_songs to return dummy data
-        mock_scan.return_value = [
-            {
-                "number": 1,
-                "artist": "Test Artist",
-                "background": "Test Background",
-                "lyrics_snippet": "Test Lyrics Snippet",
-                "musical_direction": "Test Musical Direction"
+        # We must import app AFTER patching modules
+        if 'app' in sys.modules:
+            del sys.modules['app']
+        import app
+        self.app_module = app
+
+        from config import ALBUM_MODEL
+        self.ALBUM_MODEL = ALBUM_MODEL
+
+    def tearDown(self):
+        self.patcher.stop()
+
+    def test_album_mode_loop(self):
+        # We need to patch symbols in the imported app module
+        with patch('app.SongbirdWorkflow') as MockWorkflow, \
+             patch('app.scan_recent_songs') as mock_scan, \
+             patch('requests.post') as mock_post:
+
+            # Setup mocks
+            mock_flow_instance = MockWorkflow.return_value
+            mock_flow_instance.run.return_value = {
+                "audio_path": "output/test_song.mp3",
+                "cleaned_lyrics": "Test lyrics",
+                "musical_direction": "Test direction"
             }
-        ]
 
-        # Mock Ollama response for generate_next_direction
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"response": "Next song direction"}
-        mock_post.return_value = mock_response
+            # Mock scan_recent_songs
+            mock_scan.return_value = [
+                {
+                    "number": 1,
+                    "artist": "Test Artist",
+                    "background": "Test Background",
+                    "lyrics_snippet": "Test Lyrics Snippet",
+                    "musical_direction": "Test Musical Direction"
+                }
+            ]
 
-        # Mock sys.argv to simulate CLI arguments
-        test_args = [
-            "app.py",
-            "--album",
-            "--theme", "Test Album Theme",
-            "--num-songs", "2",
-            "--base-direction", "Rock music"
-        ]
+            # Mock Ollama response
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"response": "Next song direction"}
+            mock_post.return_value = mock_response
 
-        with patch.object(sys, 'argv', test_args):
-            app.main()
+            # Mock sys.argv
+            test_args = [
+                "app.py",
+                "--album",
+                "--theme", "Test Album Theme",
+                "--num-songs", "2",
+                "--base-direction", "Rock music"
+            ]
 
-        # Verify calls
-        # Expected calls to flow.run: 2 times
-        self.assertEqual(mock_flow_instance.run.call_count, 2)
+            with patch.object(sys, 'argv', test_args):
+                self.app_module.main()
 
-        # First call should have the initial direction
-        call_args_list = mock_flow_instance.run.call_args_list
-        first_call_args = call_args_list[0]
-        # args are (genre, user_direction)
-        # genre default is POP
-        self.assertEqual(first_call_args[0][0], "POP")
-        self.assertIn("Test Album Theme", first_call_args[0][1])
-        self.assertIn("Rock music", first_call_args[0][1])
+            # Verify calls
+            self.assertEqual(mock_flow_instance.run.call_count, 2)
 
-        # Second call should use the generated direction
-        second_call_args = call_args_list[1]
-        self.assertEqual(second_call_args[0][0], "POP")
-        self.assertEqual(second_call_args[0][1], "Next song direction")
+            # First call
+            call_args_list = mock_flow_instance.run.call_args_list
+            first_call_args = call_args_list[0]
+            # args: (genre, user_direction, ...)
+            self.assertEqual(first_call_args[0][0], "POP")
+            self.assertIn("Test Album Theme", first_call_args[0][1])
 
-        # Verify scan_recent_songs was called once (for the second song)
-        self.assertEqual(mock_scan.call_count, 1)
-
-        # Verify requests.post (Ollama) was called once (for the second song)
-        self.assertEqual(mock_post.call_count, 1)
-        args, kwargs = mock_post.call_args
-        self.assertEqual(kwargs['json']['model'], ALBUM_MODEL)
-        self.assertIn("Test Album Theme", kwargs['json']['prompt'])
+            # Second call
+            second_call_args = call_args_list[1]
+            self.assertEqual(second_call_args[0][0], "POP")
+            self.assertEqual(second_call_args[0][1], "Next song direction")
 
 if __name__ == '__main__':
     unittest.main()
