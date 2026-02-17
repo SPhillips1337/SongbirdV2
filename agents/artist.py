@@ -27,7 +27,17 @@ class ArtistAgent:
         try:
             response = requests.post(
                 f"{self.base_url}/api/generate",
-                json={"model": self.model, "prompt": prompt, "stream": False},
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.8,
+                        "min_p": 0.05,
+                        "top_p": 0.9,
+                        "top_k": 40
+                    }
+                },
                 timeout=60
             )
             response.raise_for_status()

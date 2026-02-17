@@ -35,10 +35,16 @@ class MusicAgent:
             response = requests.post(
                 f"{self.base_url}/api/generate",
                 json={
-                    "model": self.model, 
-                    "prompt": f"{system_prompt}\n\n{user_prompt}", 
+                    "model": self.model,
+                    "prompt": f"{system_prompt}\n\n{user_prompt}",
                     "stream": False,
-                    "format": "json"
+                    "format": "json",
+                    "options": {
+                        "temperature": 0.7,  # Slightly lower for structured JSON output
+                        "min_p": 0.05,
+                        "top_p": 0.9,
+                        "top_k": 40
+                    }
                 },
                 timeout=60
             )

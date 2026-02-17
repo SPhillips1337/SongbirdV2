@@ -332,12 +332,28 @@ Audio Engineering / Punctuation Rules (CRITICAL):
 - Implementation:
     - Write lyrics with strict punctuation. Treat punctuation as musical notation for breathing. Never write a line without ending punctuation.
 
+CRITICAL CONSTRAINTS:
+- DO NOT include ANY meta-commentary, notes, or explanations about your creative process.
+- DO NOT write lines like "Note:", "Explanation:", "I tried to...", or any self-referential text.
+- OUTPUT ONLY the lyrics themselves with ACE-Step markers.
+- If you find yourself wanting to explain something, DON'T. Just write better lyrics instead.
+
 Begin creative workflow immediately."""
 
         try:
             response = requests.post(
                 f"{self.base_url}/api/generate",
-                json={"model": self.model, "prompt": prompt, "stream": False},
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.8,  # Creative but controlled
+                        "min_p": 0.05,       # Filter out low-probability garbage while keeping creativity
+                        "top_p": 0.9,
+                        "top_k": 40
+                    }
+                },
                 timeout=90
             )
             response.raise_for_status()
@@ -422,6 +438,92 @@ Begin creative workflow immediately."""
         
         return '\n'.join(filtered_lines)
 
+    def strip_meta_commentary(self, lyrics):
+        """
+        Removes LLM meta-commentary and explanations that sometimes appear in lyrics.
+        
+        Removes lines starting with:
+        - "Note:"
+        - "Explanation:"
+        - "I tried to..."
+        - "I've tried to..."
+        - "The lyrics..."
+        - Other self-referential commentary
+        """
+        lines = lyrics.split('\n')
+        filtered_lines = []
+        skip_rest = False
+        
+        for line in lines:
+            stripped = line.strip()
+            lower = stripped.lower()
+            
+            # Check for meta-commentary markers
+            meta_markers = [
+                'note:', 'explanation:', 'i tried to', "i've tried to",
+                'the lyrics', 'this song', 'these lyrics', 'i focused on',
+                'i aimed to', 'i wanted to', 'i incorporated', 'i used',
+                'i avoided', 'i created', 'i wrote', 'i included'
+            ]
+            
+            # If we find meta-commentary, skip this line and all following lines
+            if any(lower.startswith(marker) for marker in meta_markers):
+                skip_rest = True
+                continue
+            
+            if not skip_rest:
+                filtered_lines.append(line)
+        
+        return '\n'.join(filtered_lines)
+
+    def strip_standalone_musical_instructions(self, lyrics):
+        """
+        Removes standalone lines that are musical instructions without parentheses/brackets.
+        
+        Examples to remove:
+        - "Anguished vocals, crushing guitars"
+        - "Anthemic, soaring vocals"
+        - "Heavy, distorted guitars"
+        - "Fading vocals, fading riffs"
+        
+        These are lines that contain ONLY musical keywords and no actual lyrical content.
+        """
+        lines = lyrics.split('\n')
+        filtered_lines = []
+        
+        for line in lines:
+            stripped = line.strip()
+            
+            # Skip empty lines and section markers
+            if not stripped or (stripped.startswith('[') and stripped.endswith(']')):
+                filtered_lines.append(line)
+                continue
+            
+            # Check if this line is ONLY musical instructions
+            # Remove all musical keywords and see if anything meaningful remains
+            test_line = stripped.lower()
+            
+            # Remove common punctuation and conjunctions
+            test_line = re.sub(r'[,;:]', ' ', test_line)
+            test_line = re.sub(r'\b(and|with|the|a|an)\b', ' ', test_line)
+            
+            # Split into words
+            words = test_line.split()
+            
+            # Check if ALL words are musical keywords
+            if words:
+                musical_word_count = sum(1 for word in words if MUSICAL_KEYWORDS_REGEX.search(word))
+                total_words = len(words)
+                
+                # If 80% or more of the words are musical keywords, it's likely a musical instruction
+                if total_words > 0 and (musical_word_count / total_words) >= 0.8:
+                    logging.info(f"Filtering standalone musical instruction: {stripped}")
+                    continue
+            
+            filtered_lines.append(line)
+        
+        return '\n'.join(filtered_lines)
+
     def normalize_lyrics(self, lyrics):
         """
         Cleans and normalizes lyrics while preserving ACE-Step markers and background vocals.
@@ -442,6 +544,12 @@ Begin creative workflow immediately."""
 
         # Filter out musical directions
         lyrics = self.strip_musical_directions(lyrics)
+        
+        # Filter out meta-commentary
+        lyrics = self.strip_meta_commentary(lyrics)
+        
+        # Filter out standalone musical instructions
+        lyrics = self.strip_standalone_musical_instructions(lyrics)
 
         lines = lyrics.split('\n')
         cleaned_lines = []

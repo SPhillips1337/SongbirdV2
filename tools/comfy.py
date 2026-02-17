@@ -12,7 +12,7 @@ class ComfyClient:
         self.timeout = timeout
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird", seed=None, steps=8, cfg=1, sampler_name="euler", scheduler="simple", negative_prompt=""):
+    def submit_prompt(self, lyrics, tags, bpm=120, keyscale="C major", duration=240, filename_prefix="songbird", seed=None, steps=8, cfg=1, sampler_name="euler", scheduler="simple", negative_prompt="", min_p=0):
         # Load workflow template
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         template_path = os.path.join(base_dir, "audio_ace_step_1_5_checkpoint.json")
@@ -44,6 +44,7 @@ class ComfyClient:
             inputs["bpm"] = bpm
             inputs["duration"] = duration
             inputs["keyscale"] = keyscale
+            inputs["min_p"] = min_p
 
         # Update EmptyAceStep1.5LatentAudio (Node 98)
         if "98" in prompt:
@@ -54,7 +55,9 @@ class ComfyClient:
             prompt["104"]["inputs"]["filename_prefix"] = f"audio/{filename_prefix}"
 
         # Handle Negative Prompt
-        # Uses standard CLIPTextEncode node defined in config
+        # Uses CLIPTextEncode (Node 7) instead of ConditioningZeroOut
+        # Note: We previously used ConditioningZeroOut but it caused sound quality issues
+        # by effectively combining negative and positive prompts
         neg_node_id = getattr(config, "NEGATIVE_PROMPT_NODE_ID", "7")
         if neg_node_id in prompt:
             prompt[neg_node_id]["inputs"]["text"] = negative_prompt
