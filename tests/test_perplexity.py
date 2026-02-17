@@ -12,10 +12,18 @@ class TestPerplexityClient(unittest.TestCase):
     def setUp(self):
         self.api_key = "test_api_key"
         os.environ["PERPLEXITY_API_KEY"] = self.api_key
-        self.client = PerplexityClient()
+        # Ensure cache is empty or mocked
+        with patch('tools.cache.CacheManager') as MockCache:
+             MockCache.return_value.get.return_value = None
+             self.client = PerplexityClient()
+             self.client.cache = MagicMock()
+             self.client.cache.get.return_value = None
 
     def tearDown(self):
-        del os.environ["PERPLEXITY_API_KEY"]
+        if "PERPLEXITY_API_KEY" in os.environ:
+             del os.environ["PERPLEXITY_API_KEY"]
+        if "PERPLEXICA_URL" in os.environ:
+             del os.environ["PERPLEXICA_URL"]
 
     @patch('requests.post')
     def test_search_timeout(self, mock_post):
@@ -29,15 +37,23 @@ class TestPerplexityClient(unittest.TestCase):
         # Call the method
         self.client.search("test query")
 
-        # Verify that requests.post was called with timeout=240
+        # Verify that requests.post was called with timeout=60 (updated from 240)
         args, kwargs = mock_post.call_args
-        self.assertEqual(kwargs['timeout'], 240, "Timeout should be 240 seconds")
+        self.assertEqual(kwargs['timeout'], 60, "Timeout should be 60 seconds")
 
     @patch('requests.post')
     def test_perplexica_search(self, mock_post):
         # Setup mock for Perplexica
         os.environ["PERPLEXICA_URL"] = "http://localhost:3000"
-        client = PerplexityClient()
+        # Unset API key to force local usage
+        if "PERPLEXITY_API_KEY" in os.environ:
+            del os.environ["PERPLEXITY_API_KEY"]
+
+        # Mock cache for this instance too
+        with patch('tools.cache.CacheManager'):
+             client = PerplexityClient()
+             client.cache = MagicMock()
+             client.cache.get.return_value = None
         
         # Mock response
         mock_response = MagicMock()
@@ -48,12 +64,10 @@ class TestPerplexityClient(unittest.TestCase):
         result = client.search("test query")
         
         # Verify URL and format
-        self.assertTrue(client.is_perplexica)
-        self.assertIn("/api/search", client.url)
+        self.assertIsNotNone(client.local_url)
+        self.assertIn("/api/search", client.local_url)
         self.assertEqual(result, "Perplexica result")
         
         # specific request format
         args, kwargs = mock_post.call_args
         self.assertIn("focusMode", kwargs['json'])
-        
-        del os.environ["PERPLEXICA_URL"]

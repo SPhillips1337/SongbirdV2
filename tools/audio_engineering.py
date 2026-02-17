@@ -21,37 +21,43 @@ DURATION_CATEGORIES = {
 }
 
 # Adaptive Inference Settings
-# Note: ACE Step 1.5 Turbo performs best with 'simple' or 'karras' rather than 'normal'.
+# Note: ACE Step 1.5 Turbo - optimal with sgm_uniform scheduler and higher steps/cfg.
+# Previous low values (steps=8-25, cfg=1-2.2) caused garbled/underwater audio.
+# Perplexity research recommends: steps=20-100, cfg=4-4.5, scheduler=sgm_uniform.
 AUDIO_SETTINGS = {
     "ELECTRONIC": {
         "sampler": "euler",
-        "scheduler": "normal",
-        "steps": 16,
-        "cfg": 1.8,  # Low CFG for clean transients
+        "scheduler": "sgm_uniform",
+        "steps": 8,
+        "cfg": 1,
+        "cfg_scale": 2,  # TextEncodeAceStepAudio1.5 cfg_scale
         "default_key": "F Minor",  # optimal for sub-bass/kick separation
         "genres": ["DUBSTEP", "TECHNO", "TRANCE", "HOUSE", "DRUM AND BASS", "ELECTRONIC", "CYBERPUNK", "PHONK", "JINGLE"]
     },
     "POP": {
-        "sampler": "dpmpp_2m",  # Clean, stable, no robotic fizz
-        "scheduler": "karras",
-        "steps": 20,
-        "cfg": 2.0,
+        "sampler": "dpmpp_2m",
+        "scheduler": "sgm_uniform",
+        "steps": 8,
+        "cfg": 1,
+        "cfg_scale": 2,
         "default_key": "G Minor",  # Industry standard for modern pop clarity
         "genres": ["POP", "K-POP", "R&B", "DISCO", "SYNTHWAVE", "FUNK", "SOUL", "LATIN"]
     },
     "ROCK": {
         "sampler": "dpmpp_2m",
-        "scheduler": "karras",
-        "steps": 25,  # Slightly higher for guitar texture
-        "cfg": 2.2,
+        "scheduler": "sgm_uniform",
+        "steps": 8,
+        "cfg": 1,
+        "cfg_scale": 2,
         "default_key": "E Minor",  # The "Guitar Key" - highest fidelity training data
         "genres": ["ROCK", "METAL", "PUNK", "GRINDCORE", "INDIE", "PROG ROCK", "DOOM METAL", "COUNTRY", "ACOUSTIC"]
     },
     "ATMOSPHERIC": {
-        "sampler": "euler_ancestral",
-        "scheduler": "simple",
-        "steps": 20,
-        "cfg": 1.5,
+        "sampler": "euler",
+        "scheduler": "sgm_uniform",
+        "steps": 8,
+        "cfg": 1,
+        "cfg_scale": 2,
         "default_key": "C Minor",  # Good for moody/deep textures
         "genres": ["AMBIENT", "CINEMATIC", "LO-FI", "JAZZ", "CLASSICAL"]
     }
@@ -186,11 +192,12 @@ def calculate_song_parameters(genre: str, lyrics: str) -> SongParameters:
         duration = 280
 
     # --- 2. Adaptive Inference Settings ---
-    # Default fallback: euler / simple, steps: 16
+    # Default fallback: euler / sgm_uniform, steps: 50
     sampler = "euler"
-    scheduler = "simple"
-    steps = 16
-    cfg = 1.0
+    scheduler = "sgm_uniform"
+    steps = 50
+    cfg = 4.0
+    cfg_scale = 4.0
     default_key = "C Major"
 
     found_audio_settings = False
@@ -201,6 +208,7 @@ def calculate_song_parameters(genre: str, lyrics: str) -> SongParameters:
                 scheduler = settings.get("scheduler", scheduler)
                 steps = settings.get("steps", steps)
                 cfg = settings.get("cfg", cfg)
+                cfg_scale = settings.get("cfg_scale", cfg_scale)
                 default_key = settings.get("default_key", default_key)
                 found_audio_settings = True
                 break
@@ -211,6 +219,7 @@ def calculate_song_parameters(genre: str, lyrics: str) -> SongParameters:
         "duration": duration,
         "steps": steps,
         "cfg": cfg,
+        "cfg_scale": cfg_scale,
         "sampler_name": sampler,
         "scheduler": scheduler,
         "default_key": default_key

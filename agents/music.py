@@ -9,12 +9,15 @@ class MusicAgent:
         self.base_url = OLLAMA_BASE_URL
         self.model = LYRIC_MODEL
 
-    def generate_direction(self, genre, user_direction):
+    def generate_direction(self, genre, user_direction, trending_data=None):
         system_prompt = MUSIC_PROMPTS.get(genre.upper(), MUSIC_PROMPTS.get("POP", "Default POP Prompt"))
         
+        trending_context = f"TRENDING DATA (Incorporate if relevant): {trending_data}\n\n" if trending_data else ""
+
         user_prompt = (
             f"PRIMARY INSTRUCTION (USER DIRECTION): {user_direction}\n\n"
             f"GENRE CONTEXT: {genre}\n\n"
+            f"{trending_context}"
             "Task: Create a musical direction for this song.\n"
             "INSTRUCTIONS:\n"
             "1. STRICTLY ADHERE to all stylistic details, vocals, and instruments mentioned in the PRIMARY INSTRUCTION.\n"
@@ -32,10 +35,16 @@ class MusicAgent:
             response = requests.post(
                 f"{self.base_url}/api/generate",
                 json={
-                    "model": self.model, 
-                    "prompt": f"{system_prompt}\n\n{user_prompt}", 
+                    "model": self.model,
+                    "prompt": f"{system_prompt}\n\n{user_prompt}",
                     "stream": False,
-                    "format": "json"
+                    "format": "json",
+                    "options": {
+                        "temperature": 0.7,  # Slightly lower for structured JSON output
+                        "min_p": 0.05,
+                        "top_p": 0.9,
+                        "top_k": 40
+                    }
                 },
                 timeout=60
             )

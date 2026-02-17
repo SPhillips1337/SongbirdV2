@@ -28,6 +28,9 @@ MUSIC_PROMPTS = load_json_config("music_prompts.json")
 # Artist styles by genre
 ARTIST_STYLES = load_json_config("artist_styles.json")
 
+# Popular artists by genre (for random selection)
+GENRE_ARTISTS = load_json_config("genres.json")
+
 # Default artist style when genre is not found in ARTIST_STYLES
 DEFAULT_ARTIST_STYLE = "Adele"
 

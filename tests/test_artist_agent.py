@@ -6,12 +6,9 @@ import os
 # Add root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Mock requests before importing agents.artist
-sys.modules['requests'] = MagicMock()
-
 # Now import the module under test
 from agents.artist import ArtistAgent
-from config import DEFAULT_ARTIST_STYLE, ARTIST_STYLES
+from config import DEFAULT_ARTIST_STYLE, ARTIST_STYLES, GENRE_ARTISTS
 
 class TestArtistAgent(unittest.TestCase):
     def setUp(self):
@@ -22,11 +19,15 @@ class TestArtistAgent(unittest.TestCase):
         # "POP" -> "Taylor Swift" (based on config.py)
         # Note: We rely on the actual config.py here.
         style = self.agent.select_artist_style("POP")
-        self.assertEqual(style, "Taylor Swift")
+        valid_artists = GENRE_ARTISTS.get("POP", [])
+        if "POP" in ARTIST_STYLES:
+             valid_artists.append(ARTIST_STYLES["POP"])
+
+        self.assertIn(style, valid_artists)
 
         # Test case insensitivity
         style_lower = self.agent.select_artist_style("pop")
-        self.assertEqual(style_lower, "Taylor Swift")
+        self.assertIn(style_lower, valid_artists)
 
     def test_select_artist_style_unknown_genre(self):
         # Test an unknown genre

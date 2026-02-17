@@ -19,26 +19,48 @@ class TestSongbirdWorkflow(unittest.TestCase):
         def side_effect_post(url, json=None, **kwargs):
             # Ollama Generate
             if "api/generate" in url:
-                prompt = json.get("prompt", "")
-                if "character profile" in prompt:
-                    return MagicMock(json=lambda: {"response": "A cool artist persona."})
-                if "musical direction" in prompt:
+                prompt = json.get("prompt", "") if json else ""
+                prompt_lower = prompt.lower()
+                if "character profile" in prompt_lower:
+                    mock_resp = MagicMock()
+                    mock_resp.json.return_value = {"response": "A cool artist persona."}
+                    return mock_resp
+                if "musical direction" in prompt_lower or "create a musical direction" in prompt_lower:
                     # Return JSON string as expected by new logic
-                    return MagicMock(json=lambda: {"response": '{"tags": "dark, moody", "bpm": 140, "keyscale": "D minor"}'})
-                if "Role: Expert AI Songwriter" in prompt:
-                    return MagicMock(json=lambda: {"response": "[Intro]\nYeah yeah\n[Verse]\nLyrics here\n[Chorus]\nSing it loud"})
-                return MagicMock(json=lambda: {"response": "Generic response"})
+                    mock_resp = MagicMock()
+                    mock_resp.json.return_value = {"response": '{"tags": "dark, moody", "bpm": 140, "keyscale": "D minor"}'}
+                    return mock_resp
+
+                # Default case catching all 'musical' related prompts if above failed
+                if "music" in prompt_lower:
+                     mock_resp = MagicMock()
+                     mock_resp.json.return_value = {"response": '{"tags": "dark, moody", "bpm": 140, "keyscale": "D minor"}'}
+                     return mock_resp
+                if "expert ai songwriter" in prompt_lower or "lyrics" in prompt_lower:
+                    mock_resp = MagicMock()
+                    mock_resp.json.return_value = {"response": "[Intro]\nYeah yeah\n[Verse]\nLyrics here\n[Chorus]\nSing it loud"}
+                    return mock_resp
+
+                # Default case to handle any other prompt
+                mock_resp = MagicMock()
+                mock_resp.json.return_value = {"response": '{"tags": "default tags", "bpm": 120, "keyscale": "C major"}'}
+                return mock_resp
 
             # ComfyUI Prompt
             if "/prompt" in url:
-                return MagicMock(json=lambda: {"prompt_id": "test_id_123"})
+                mock_resp = MagicMock()
+                mock_resp.json.return_value = {"prompt_id": "test_id_123"}
+                return mock_resp
 
-            return MagicMock()
+            mock_resp = MagicMock()
+            mock_resp.json.return_value = {"response": '{"tags": "default tags", "bpm": 120, "keyscale": "C major"}'}
+            return mock_resp
 
         def side_effect_get(url, params=None, **kwargs):
             # ComfyUI History
             if "/history/test_id_123" in url:
-                return MagicMock(json=lambda: {
+                mock_resp = MagicMock()
+                mock_resp.json.return_value = {
                     "test_id_123": {
                         "outputs": {
                             "104": [
@@ -46,7 +68,8 @@ class TestSongbirdWorkflow(unittest.TestCase):
                             ]
                         }
                     }
-                })
+                }
+                return mock_resp
 
             # ComfyUI View (Download)
             if "/view" in url:

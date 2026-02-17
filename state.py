@@ -19,3 +19,7 @@ class SongState(TypedDict):
     vocals: Optional[str]
     vocal_strength: Optional[float]
     key: Optional[str]
+    trending_data: Optional[str]
+    poetic_mode: Optional[bool]
+    band_profile: Optional[dict]
+    suggested_prompt: Optional[dict]
