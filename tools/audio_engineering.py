@@ -19,46 +19,44 @@ DURATION_CATEGORIES = {
     "SHORT": {"min": 120, "max": 180, "genres": ["PUNK", "GRINDCORE", "JINGLE", "LO-FI", "PHONK"]},
     "MEDIUM": {"min": 180, "max": 240, "genres": ["POP", "ROCK", "COUNTRY", "RAP", "DUBSTEP", "R&B", "FUNK", "SOUL", "LATIN", "METAL"]}
 }
-
 # Adaptive Inference Settings
-# Note: ACE Step 1.5 Turbo - optimal with sgm_uniform scheduler and higher steps/cfg.
-# Previous low values (steps=8-25, cfg=1-2.2) caused garbled/underwater audio.
-# Perplexity research recommends: steps=20-100, cfg=4-4.5, scheduler=sgm_uniform.
+# Note: ACE Step 1.5 Turbo Sweet Spot: Steps 12-16, CFG 1.2-1.5.
+# Exceeding CFG 2.0 often causes "phase burn" artifacts.
 AUDIO_SETTINGS = {
     "ELECTRONIC": {
-        "sampler": "euler",
-        "scheduler": "sgm_uniform",
-        "steps": 8,
-        "cfg": 1,
-        "cfg_scale": 2,  # TextEncodeAceStepAudio1.5 cfg_scale
-        "default_key": "F Minor",  # optimal for sub-bass/kick separation
+        "sampler": "euler",         # Keep Euler for punchy transients (Drums/Bass)
+        "scheduler": "sgm_uniform", # Correct for Turbo
+        "steps": 12,                # Bumped from 8->12 for better sub-bass definition
+        "cfg": 1.0,                 # Keep Sampler CFG low for stability
+        "cfg_scale": 3.0,           # Bump Text Guidance slightly so it follows genre tags
+        "default_key": "F Minor",   # Optimal for sub-bass
         "genres": ["DUBSTEP", "TECHNO", "TRANCE", "HOUSE", "DRUM AND BASS", "ELECTRONIC", "CYBERPUNK", "PHONK", "JINGLE"]
     },
     "POP": {
-        "sampler": "dpmpp_2m",
+        "sampler": "dpmpp_2m",      # Best for coherent vocals (less robotic)
         "scheduler": "sgm_uniform",
-        "steps": 8,
-        "cfg": 1,
-        "cfg_scale": 2,
-        "default_key": "G Minor",  # Industry standard for modern pop clarity
+        "steps": 16,                # Vocals need more steps to resolve clearly
+        "cfg": 1.4,                 # The "Organic" sweet spot you remembered
+        "cfg_scale": 3.5,           # Stronger text guidance to force lyrical adherence
+        "default_key": "G Minor",   # Modern pop clarity
         "genres": ["POP", "K-POP", "R&B", "DISCO", "SYNTHWAVE", "FUNK", "SOUL", "LATIN"]
     },
     "ROCK": {
-        "sampler": "dpmpp_2m",
+        "sampler": "dpmpp_2m",      # Stable for guitars
         "scheduler": "sgm_uniform",
-        "steps": 8,
-        "cfg": 1,
-        "cfg_scale": 2,
-        "default_key": "E Minor",  # The "Guitar Key" - highest fidelity training data
+        "steps": 16,                # Needed for texture detail
+        "cfg": 1.3,                 # Slightly lower than Pop to allow "fuzz/distortion"
+        "cfg_scale": 3.0,
+        "default_key": "E Minor",   # Guitar key
         "genres": ["ROCK", "METAL", "PUNK", "GRINDCORE", "INDIE", "PROG ROCK", "DOOM METAL", "COUNTRY", "ACOUSTIC"]
     },
     "ATMOSPHERIC": {
-        "sampler": "euler",
+        "sampler": "euler",         # Euler is smoother for pads than dpmpp
         "scheduler": "sgm_uniform",
-        "steps": 8,
-        "cfg": 1,
-        "cfg_scale": 2,
-        "default_key": "C Minor",  # Good for moody/deep textures
+        "steps": 12,
+        "cfg": 1.0,                 # Keep loose for dreamy/drifting feel
+        "cfg_scale": 2.5,           # Low guidance prevents "trying too hard"
+        "default_key": "C Minor",   # Deep/Moody
         "genres": ["AMBIENT", "CINEMATIC", "LO-FI", "JAZZ", "CLASSICAL"]
     }
 }
