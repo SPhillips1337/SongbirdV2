@@ -14,6 +14,7 @@ from state import SongState
 from agents.artist import ArtistAgent
 from agents.music import MusicAgent
 from agents.lyrics import LyricsAgent
+from agents.narrative import NarrativeAgent
 from tools.comfy import ComfyClient
 from tools.metadata import scan_recent_songs, save_metadata
 from tools.utils import sanitize_input, sanitize_filename, normalize_keyscale
@@ -403,11 +404,24 @@ def main():
 
         logging.info(f"Album Master Seed: {master_seed}")
 
+        # Generate Album Narrative
+        print("Designing unique album story arc...")
+        narrative_agent = NarrativeAgent()
+        album_narrative = narrative_agent.generate_album_narrative(
+            args.genre, 
+            args.theme, 
+            album_name, 
+            band_bio=persistent_artist_background,
+            num_songs=args.num_songs
+        )
+        logging.info(f"Generated Album Narrative: {album_narrative}")
+        print(f"Narrative Arc: {album_narrative[:200]}...")
+
         for i in range(1, args.num_songs + 1):
             print(f"\n--- Generating Song {i}/{args.num_songs} ---")
 
             # Generate song title
-            song_title = generate_song_title(album_name, i, args.genre, args.theme, args.base_direction)
+            song_title = generate_song_title(album_name, i, args.genre, args.theme, args.base_direction, album_narrative=album_narrative)
             print(f"Title: {song_title}")
 
             if i == 1:
@@ -422,7 +436,8 @@ def main():
                     args.base_direction,
                     recent_summaries,
                     i,
-                    args.num_songs
+                    args.num_songs,
+                    album_narrative=album_narrative
                 )
 
             logging.info(f"Song {i} Direction: {current_direction}")

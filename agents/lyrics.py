@@ -3,6 +3,7 @@ import json
 import logging
 import re
 from config import OLLAMA_BASE_URL, LYRIC_MODEL
+from tools.utils import strip_thinking
 from tools.rag import RAGTool
 from tools.perplexity import PerplexityClient
 from tools.audio_engineering import calculate_lyric_budget, DURATION_CATEGORIES
@@ -537,10 +538,9 @@ Begin creative workflow immediately."""
         """
         # Strip whitespace first
         lyrics = lyrics.strip()
-
-        # Strip surrounding quotes if the LLM output was wrapped in them
-        if (lyrics.startswith('"') and lyrics.endswith('"')) or (lyrics.startswith("'") and lyrics.endswith("'")):
-            lyrics = lyrics[1:-1].strip()
+        
+        # Strip thinking blocks first
+        lyrics = strip_thinking(lyrics)
 
         # Filter out musical directions
         lyrics = self.strip_musical_directions(lyrics)

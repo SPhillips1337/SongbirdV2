@@ -1,16 +1,19 @@
 import requests
 import logging
 from config import OLLAMA_BASE_URL, ALBUM_MODEL
+from tools.utils import strip_thinking
 
-def generate_next_direction(theme, base_direction, previous_songs_summaries, current_song_index, total_songs):
+def generate_next_direction(theme, base_direction, previous_songs_summaries, current_song_index, total_songs, album_narrative=None):
     """
     Generates the direction for the next song using Ollama.
     """
+    narrative_context = f"\nALBUM NARRATIVE ARC:\n{album_narrative}\n" if album_narrative else ""
+    
     system_prompt = (
-        "You are an expert rock album concept writer. Given an album theme and summaries of previous songs, "
-        "suggest the NEXT direction prompt (a short string, 50-100 words) that logically continues the narrative arc "
-        "while keeping musical cohesion. Make it feel like the next chapter in a story. "
-        "Always include references to progression (e.g., 'continue the wolf saga', 'now the pack unites', 'climactic hunt', 'dawn reflection/finale')."
+        "You are an expert rock album concept writer. Given an album theme, the overall narrative arc, "
+        "and summaries of previous songs, suggest the NEXT direction prompt (a short string, 50-100 words) "
+        "that logically continues the narrative while keeping musical cohesion. "
+        "Make it feel like the next chapter in the story."
     )
 
     prev_songs_text = "".join(
@@ -24,6 +27,7 @@ def generate_next_direction(theme, base_direction, previous_songs_summaries, cur
     user_prompt = (
         f"Album theme: {theme}\n"
         f"Shared constraints: {base_direction}\n"
+        f"{narrative_context}"
         f"Previous songs summary:\n{prev_songs_text}\n"
         f"Now generate the direction prompt for song {current_song_index} of {total_songs}:"
     )
@@ -46,7 +50,8 @@ def generate_next_direction(theme, base_direction, previous_songs_summaries, cur
             return f"{base_direction} {theme}. Continue the story (Song {current_song_index}/{total_songs})."
 
         result = response.json()
-        return result.get("response", "").strip()
+        text = result.get("response", "").strip()
+        return strip_thinking(text)
     except Exception as e:
         logging.error(f"Error calling Ollama: {e}")
         # Graceful fallback if Ollama fails or times out
@@ -77,6 +82,7 @@ def generate_album_title(genre, theme, direction):
         )
         if response.status_code == 200:
             title = response.json().get("response", "").strip()
+            title = strip_thinking(title)
             # Remove quotes if present
             if (title.startswith('"') and title.endswith('"')) or (title.startswith("'") and title.endswith("'")):
                 title = title[1:-1]
@@ -88,14 +94,16 @@ def generate_album_title(genre, theme, direction):
 
     return theme
 
-def generate_song_title(album_name, track_number, genre, theme, direction):
+def generate_song_title(album_name, track_number, genre, theme, direction, album_narrative=None):
     """
     Generates a creative song title using Ollama.
     """
+    narrative_context = f"Album Narrative: {album_narrative}\n" if album_narrative else ""
     prompt = (
         f"Generate a creative song title for track #{track_number} of the album '{album_name}'.\n"
         f"Genre: {genre}\n"
         f"Album Theme: {theme}\n"
+        f"{narrative_context}"
         f"Song Direction: {direction}\n"
         "The title should be cohesive with the album concept.\n"
         "Output ONLY the song title, nothing else. Do not use quotes."
@@ -115,6 +123,7 @@ def generate_song_title(album_name, track_number, genre, theme, direction):
         )
         if response.status_code == 200:
             title = response.json().get("response", "").strip()
+            title = strip_thinking(title)
             # Remove quotes if present
             if (title.startswith('"') and title.endswith('"')) or (title.startswith("'") and title.endswith("'")):
                 title = title[1:-1]

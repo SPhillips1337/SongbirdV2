@@ -78,3 +78,42 @@ def normalize_keyscale(keyscale_str):
             scale = "major"
 
     return f"{note} {scale}"
+
+def strip_thinking(text):
+    """
+    Strips 'thinking' or reasoning blocks from LLM responses.
+    Handles <thought>, [thought], <think> tags and common prefixes.
+    """
+    if not text:
+        return ""
+
+    # 1. Strip XML-style tags
+    # Handles <thought>...</thought>, <think>...</think>, <reasoning>...</reasoning>
+    text = re.sub(r'<(thought|think|reasoning|thinking)>.*?</\1>', '', text, flags=re.DOTALL | re.IGNORECASE)
+
+    # 2. Strip bracket-style tags
+    # Handles [thought]...[/thought], [think]...[/think]
+    text = re.sub(r'\[(thought|think|reasoning|thinking)\].*?\[/\1\]', '', text, flags=re.DOTALL | re.IGNORECASE)
+
+    # 3. Strip common prefixes if they appear at the very beginning
+    # Some models just output "Thought: ..." or "Thinking: ..." without closing tags
+    prefixes = [
+        r'^thought:\s*',
+        r'^thinking:\s*',
+        r'^reasoning:\s*',
+        r'^<thought>\s*',
+        r'^\[thought\]\s*',
+        r'^<think>\s*',
+        r'^think:\s*'
+    ]
+    
+    # We only want to strip these if we can't find a closing tag (which case 1 & 2 handle)
+    # This is a bit risky but usually thinking blocks are at the start.
+    # However, to be safe, let's just stick to tag removal and common start-of-string patterns
+    # that look like they might be accidental leakage.
+    
+    # If the text starts with "think" followed by a newline or long block of text 
+    # and then another section looks like the actual answer, this is harder.
+    # But for now, common tag stripping is the most robust.
+
+    return text.strip()

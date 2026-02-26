@@ -25,7 +25,7 @@ class TestComfyClient(unittest.TestCase):
         # Verify timeout is present in kwargs
         args, kwargs = mock_post.call_args
         self.assertIn('timeout', kwargs, "Timeout missing in requests.post")
-        self.assertEqual(kwargs['timeout'], 30, "Timeout should be set to 30 seconds")
+        self.assertEqual(kwargs['timeout'], 120, "Timeout should be set to 120 seconds")
 
     @patch('requests.get')
     def test_get_history_timeout(self, mock_get):
@@ -38,7 +38,7 @@ class TestComfyClient(unittest.TestCase):
         # Verify timeout is present in kwargs
         args, kwargs = mock_get.call_args
         self.assertIn('timeout', kwargs, "Timeout missing in requests.get")
-        self.assertEqual(kwargs['timeout'], 30, "Timeout should be set to 30 seconds")
+        self.assertEqual(kwargs['timeout'], 120, "Timeout should be set to 120 seconds")
 
     @patch('requests.get')
     def test_download_file_timeout(self, mock_get):
@@ -53,7 +53,28 @@ class TestComfyClient(unittest.TestCase):
         # Verify timeout is present in kwargs
         args, kwargs = mock_get.call_args
         self.assertIn('timeout', kwargs, "Timeout missing in requests.get")
-        self.assertEqual(kwargs['timeout'], 30, "Timeout should be set to 30 seconds")
+        self.assertEqual(kwargs['timeout'], 120, "Timeout should be set to 120 seconds")
+
+    @patch('tools.comfy.ComfyClient.get_history')
+    @patch('tools.comfy.ComfyClient.download_file')
+    def test_wait_and_download_output_robust(self, mock_download, mock_get_history):
+        # Scenario: Node 104 is missing, but Node 200 has audio files
+        prompt_id = "abc"
+        mock_get_history.return_value = {
+            prompt_id: {
+                "outputs": {
+                    "200": {
+                        "audio": [{"filename": "robust_output.mp3", "subfolder": "", "type": "output"}]
+                    }
+                }
+            }
+        }
+        mock_download.return_value = "output/robust_output.mp3"
+
+        result = self.client.wait_and_download_output(prompt_id)
+
+        self.assertEqual(result, "output/robust_output.mp3")
+        mock_download.assert_called_once_with("robust_output.mp3", "", "output")
 
 if __name__ == '__main__':
     unittest.main()
