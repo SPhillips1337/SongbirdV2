@@ -50,6 +50,15 @@ AUDIO_SETTINGS = {
         "default_key": "E Minor",   # Guitar key
         "genres": ["ROCK", "METAL", "PUNK", "GRINDCORE", "INDIE", "PROG ROCK", "DOOM METAL", "COUNTRY", "ACOUSTIC"]
     },
+    "RAP": {
+        "sampler": "dpmpp_2m",  # High vocal clarity
+        "scheduler": "sgm_uniform",
+        "steps": 8,
+        "cfg": 1,
+        "cfg_scale": 2,
+        "default_key": "C# Minor",  # Strong sub-bass resonance for Rap/Trap
+        "genres": ["RAP", "HIP HOP", "TRAP", "DRILL", "GRIME", "BOOM BAP"]
+    },    
     "ATMOSPHERIC": {
         "sampler": "euler",         # Euler is smoother for pads than dpmpp
         "scheduler": "sgm_uniform",
@@ -192,10 +201,10 @@ def calculate_song_parameters(genre: str, lyrics: str) -> SongParameters:
     # --- 2. Adaptive Inference Settings ---
     # Default fallback: euler / sgm_uniform, steps: 50
     sampler = "euler"
-    scheduler = "sgm_uniform"
-    steps = 50
-    cfg = 4.0
-    cfg_scale = 4.0
+    scheduler = "simple"
+    steps = 8
+    cfg = 1
+    cfg_scale = 2.0
     default_key = "C Major"
 
     found_audio_settings = False
