@@ -2,6 +2,7 @@ import requests
 import logging
 import random
 from config import ARTIST_STYLES, GENRE_ARTISTS, OLLAMA_BASE_URL, ARTIST_MODEL, DEFAULT_ARTIST_STYLE
+from tools.utils import strip_thinking
 
 
 class ArtistAgent:
@@ -41,7 +42,8 @@ class ArtistAgent:
                 timeout=60
             )
             response.raise_for_status()
-            return response.json().get("response", "").strip()
+            text = response.json().get("response", "").strip()
+            return strip_thinking(text)
         except Exception as e:
             logging.error(f"Error generating artist persona: {e}")
             return f"A mysterious singer in the {genre} scene."

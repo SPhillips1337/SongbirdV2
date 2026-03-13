@@ -5,7 +5,7 @@ import logging
 import json
 import requests
 from collections import Counter
-from config import OLLAMA_BASE_URL, ALBUM_MODEL
+from config import OLLAMA_BASE_URL, ALBUM_MODEL, MUSIC_PROMPTS
 
 def scan_history(output_dir):
     """
@@ -54,7 +54,10 @@ def generate_suggestion(history):
     if not history or history["total_songs"] == 0:
         return None
 
+    valid_genres = list(MUSIC_PROMPTS.keys())
     prompt = f"""Based on the user's history, suggest a creative new song idea.
+
+    Available Genres (You MUST choose one): {', '.join(valid_genres)}
 
     User History:
     - Top Genres: {', '.join(history['top_genres'])}
@@ -63,7 +66,8 @@ def generate_suggestion(history):
     Task:
     1. Analyze the patterns in the history.
     2. Propose a new song idea that fits the user's taste but offers a fresh twist.
-    3. Output the result in a strict JSON format with keys: 'genre', 'direction', 'rationale'.
+    3. You MUST use one of the Available Genres listed above.
+    4. Output the result in a strict JSON format with keys: 'genre', 'direction', 'rationale'.
 
     Output JSON only.
     """
@@ -77,10 +81,19 @@ def generate_suggestion(history):
                 "stream": False,
                 "format": "json"
             },
-            timeout=60
+            timeout=120
         )
         response.raise_for_status()
         result = json.loads(response.json().get("response", "{}"))
+        
+        # Final validation to ensure genre is supported
+        if result.get("genre"):
+            if result["genre"].upper() not in valid_genres:
+                logging.warning(f"Suggested genre '{result['genre']}' is invalid. Falling back to POP.")
+                result["genre"] = "POP"
+            else:
+                result["genre"] = result["genre"].upper() # Normalize
+                
         return result
     except Exception as e:
         logging.error(f"Error generating suggestion: {e}")

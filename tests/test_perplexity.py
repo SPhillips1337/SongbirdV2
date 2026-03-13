@@ -45,6 +45,8 @@ class TestPerplexityClient(unittest.TestCase):
     def test_perplexica_search(self, mock_post):
         # Setup mock for Perplexica
         os.environ["PERPLEXICA_URL"] = "http://localhost:3000"
+        os.environ["OLLAMA_BASE_URL"] = "http://localhost:11434"
+        os.environ["ALBUM_MODEL"] = "qwen2.5:7b-instruct-q4_K_M"
         # Unset API key to force local usage
         if "PERPLEXITY_API_KEY" in os.environ:
             del os.environ["PERPLEXITY_API_KEY"]
@@ -71,3 +73,12 @@ class TestPerplexityClient(unittest.TestCase):
         # specific request format
         args, kwargs = mock_post.call_args
         self.assertIn("focusMode", kwargs['json'])
+        self.assertEqual(kwargs['json']["chatModel"], {
+            "provider": "ollama",
+            "model": "qwen2.5:7b-instruct-q4_K_M"
+        })
+        self.assertEqual(kwargs['json']["embeddingModel"], {
+            "provider": "ollama",
+            "model": "nomic-embed-text:latest"
+        })
+        self.assertEqual(kwargs['json']["optimizationMode"], "speed")

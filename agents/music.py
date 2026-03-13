@@ -2,6 +2,7 @@ import requests
 import json
 import logging
 from config import MUSIC_PROMPTS, OLLAMA_BASE_URL, LYRIC_MODEL
+from tools.utils import strip_thinking
 
 
 class MusicAgent:
@@ -50,6 +51,9 @@ class MusicAgent:
             )
             response.raise_for_status()
             response_text = response.json().get("response", "").strip()
+            
+            # Strip thinking blocks before parsing JSON
+            response_text = strip_thinking(response_text)
 
             # Parse JSON
             direction = json.loads(response_text)

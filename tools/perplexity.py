@@ -8,6 +8,10 @@ class PerplexityClient:
     def __init__(self):
         self.api_key = os.getenv("PERPLEXITY_API_KEY")
         self.perplexica_url = os.getenv("PERPLEXICA_URL")
+        self.ollama_base_url = os.getenv("OLLAMA_BASE_URL")
+        self.perplexica_chat_model = os.getenv("PERPLEXICA_CHAT_MODEL", os.getenv("ALBUM_MODEL", "qwen2.5:7b-instruct-q4_K_M"))
+        self.perplexica_embedding_model = os.getenv("PERPLEXICA_EMBEDDING_MODEL", "nomic-embed-text:latest")
+        self.perplexica_optimization_mode = os.getenv("PERPLEXICA_OPTIMIZATION_MODE", "speed")
         self.cache = CacheManager()
         # Configure endpoints
         self.cloud_url = "https://api.perplexity.ai/chat/completions"
@@ -75,10 +79,21 @@ class PerplexityClient:
     def _query_local(self, query):
         headers = {"Content-Type": "application/json"}
         data = {
+            "chatModel": {
+                "provider": "ollama",
+                "model": self.perplexica_chat_model
+            },
+            "embeddingModel": {
+                "provider": "ollama",
+                "model": self.perplexica_embedding_model
+            },
+            "optimizationMode": self.perplexica_optimization_mode,
             "focusMode": "webSearch",
             "query": query,
             "history": []
         }
+        if self.ollama_base_url:
+            logging.info(f"Local Perplexica configured for Ollama base URL: {self.ollama_base_url}")
         # Local instances might be slower or on different network conditions
         response = requests.post(self.local_url, json=data, headers=headers, timeout=120)
         response.raise_for_status()
