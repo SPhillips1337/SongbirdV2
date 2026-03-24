@@ -120,7 +120,7 @@ def calculate_lyric_budget(genre: str, duration: int = 240) -> LyricBudget:
             "- [Breakdown/Verse]: 16 bars\n"
             "- [Build-Up 2]: 8 bars\n"
             "- [Drop 2]: 16 bars\n"
-            "- [Outro]: 8 bars (Fading out...)"
+            "- [Outro]: 8 bars (Instrumental Resolution / Vocal Echoes)"
         )
     else:
         # Generic Template scaled to bars
