@@ -21,5 +21,6 @@ class SongState(TypedDict):
     key: Optional[str]
     trending_data: Optional[str]
     poetic_mode: Optional[bool]
+    bpm_override: Optional[int]
     band_profile: Optional[dict]
     suggested_prompt: Optional[dict]

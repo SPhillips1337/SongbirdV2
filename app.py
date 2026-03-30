@@ -87,13 +87,22 @@ class SongbirdWorkflow:
         # Handle dict or fallback string
         if isinstance(music_dir, dict):
             tags = music_dir.get("tags", "")
-            bpm = music_dir.get("bpm", 120)
+            generated_bpm = music_dir.get("bpm", 120)
             # We defer key resolution to the dedicated logic block below
             generated_key = normalize_keyscale(music_dir.get("keyscale", "C major"))
         else:
             tags = str(music_dir)
-            bpm = 120
+            generated_bpm = 120
             generated_key = "C major"
+
+        # BPM Resolution: User override > AI-generated
+        bpm_override = state.get("bpm_override")
+        if bpm_override:
+            bpm = int(bpm_override)
+            logging.info(f"Using User BPM Override: {bpm}")
+        else:
+            bpm = generated_bpm
+            logging.info(f"Using AI-generated BPM: {bpm}")
 
         # Vocal Prompt Injection Logic
         vocals = state.get("vocals", "auto")
@@ -218,7 +227,7 @@ class SongbirdWorkflow:
 
         return state
 
-    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None, song_title=None, album_name=None, track_number=None, vocals="auto", vocal_strength=1.2, key=None, trending_data=None, poetic_mode=False, artist_name=None):
+    def run(self, genre, user_direction, seed=None, artist_style=None, artist_background=None, song_title=None, album_name=None, track_number=None, vocals="auto", vocal_strength=1.2, key=None, trending_data=None, poetic_mode=False, artist_name=None, bpm_override=None):
         """
         Executes the Songbird workflow.
         """
@@ -242,7 +251,8 @@ class SongbirdWorkflow:
             "vocal_strength": vocal_strength,
             "key": key,
             "trending_data": trending_data,
-            "poetic_mode": poetic_mode
+            "poetic_mode": poetic_mode,
+            "bpm_override": bpm_override
         }
         final_state = self.app.invoke(initial_state)
         save_metadata(final_state)
@@ -272,6 +282,7 @@ def main():
     parser.add_argument("--artist", type=str, help="Specific reference artist name")
     parser.add_argument("--band", type=str, help="Centralized band profile name to load or create")
     parser.add_argument("--poetic", action="store_true", help="Enable poetic lyrics mode")
+    parser.add_argument("--bpm", type=int, default=None, help="Override BPM (e.g. 175). If omitted, BPM is AI-generated.")
 
     args = parser.parse_args()
 
@@ -458,7 +469,8 @@ def main():
                 key=args.key,
                 trending_data=trending_data,
                 poetic_mode=args.poetic,
-                artist_name=band_name_for_flow
+                artist_name=band_name_for_flow,
+                bpm_override=args.bpm
             )
 
             # Capture artist info from the first song if not already captured, but only if successful
@@ -494,7 +506,8 @@ def main():
             artist_background=persistent_artist_background,
             trending_data=trending_data,
             poetic_mode=args.poetic,
-            artist_name=band_name_for_flow
+            artist_name=band_name_for_flow,
+            bpm_override=args.bpm
         )
 
         print("Workflow Complete!")
