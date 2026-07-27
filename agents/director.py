@@ -1,7 +1,7 @@
-import requests
 import logging
-from config import OLLAMA_BASE_URL, ALBUM_MODEL
+from config import ALBUM_MODEL
 from tools.utils import strip_thinking
+from tools.llm import generate_text
 
 def generate_next_direction(theme, base_direction, previous_songs_summaries, current_song_index, total_songs, album_narrative=None):
     """
@@ -32,25 +32,8 @@ def generate_next_direction(theme, base_direction, previous_songs_summaries, cur
         f"Now generate the direction prompt for song {current_song_index} of {total_songs}:"
     )
 
-    payload = {
-        "model": ALBUM_MODEL,
-        "prompt": f"{system_prompt}\n\n{user_prompt}",
-        "stream": False
-    }
-
     try:
-        response = requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json=payload,
-            timeout=120 # Prevent indefinite hangs
-        )
-        # Check status before trying to parse JSON
-        if response.status_code != 200:
-            logging.error(f"Ollama returned non-200 status: {response.status_code}")
-            return f"{base_direction} {theme}. Continue the story (Song {current_song_index}/{total_songs})."
-
-        result = response.json()
-        text = result.get("response", "").strip()
+        text = generate_text(ALBUM_MODEL, f"{system_prompt}\n\n{user_prompt}", timeout=120)
         return strip_thinking(text)
     except Exception as e:
         logging.error(f"Error calling Ollama: {e}")
@@ -68,27 +51,14 @@ def generate_album_title(genre, theme, direction):
         "Output ONLY the album title, nothing else. Do not use quotes."
     )
 
-    payload = {
-        "model": ALBUM_MODEL,
-        "prompt": prompt,
-        "stream": False
-    }
-
     try:
-        response = requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json=payload,
-            timeout=30
-        )
-        if response.status_code == 200:
-            title = response.json().get("response", "").strip()
+        title = generate_text(ALBUM_MODEL, prompt, timeout=30)
+        if title:
             title = strip_thinking(title)
             # Remove quotes if present
             if (title.startswith('"') and title.endswith('"')) or (title.startswith("'") and title.endswith("'")):
                 title = title[1:-1]
-            return title if title else theme
-        else:
-            logging.error(f"Ollama returned non-200 status for album title: {response.status_code}")
+            return title
     except Exception as e:
         logging.error(f"Error generating album title: {e}")
 
@@ -109,27 +79,14 @@ def generate_song_title(album_name, track_number, genre, theme, direction, album
         "Output ONLY the song title, nothing else. Do not use quotes."
     )
 
-    payload = {
-        "model": ALBUM_MODEL,
-        "prompt": prompt,
-        "stream": False
-    }
-
     try:
-        response = requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json=payload,
-            timeout=30
-        )
-        if response.status_code == 200:
-            title = response.json().get("response", "").strip()
+        title = generate_text(ALBUM_MODEL, prompt, timeout=30)
+        if title:
             title = strip_thinking(title)
             # Remove quotes if present
             if (title.startswith('"') and title.endswith('"')) or (title.startswith("'") and title.endswith("'")):
                 title = title[1:-1]
-            return title if title else f"Song {track_number}"
-        else:
-            logging.error(f"Ollama returned non-200 status for song title: {response.status_code}")
+            return title
     except Exception as e:
         logging.error(f"Error generating song title: {e}")
 

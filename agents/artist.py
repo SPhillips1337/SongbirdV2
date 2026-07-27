@@ -1,13 +1,12 @@
-import requests
 import logging
 import random
-from config import ARTIST_STYLES, GENRE_ARTISTS, OLLAMA_BASE_URL, ARTIST_MODEL, DEFAULT_ARTIST_STYLE
+from config import ARTIST_STYLES, GENRE_ARTISTS, ARTIST_MODEL, DEFAULT_ARTIST_STYLE
 from tools.utils import strip_thinking
+from tools.llm import generate_text
 
 
 class ArtistAgent:
     def __init__(self):
-        self.base_url = OLLAMA_BASE_URL
         self.model = ARTIST_MODEL
 
     def generate_persona(self, genre, user_direction=None):
@@ -26,23 +25,7 @@ class ArtistAgent:
         Important: Do not include any additional text, explanations, or conversational phrases. Your final response must contain only the generated artist background persona."""
         
         try:
-            response = requests.post(
-                f"{self.base_url}/api/generate",
-                json={
-                    "model": self.model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.8,
-                        "min_p": 0.05,
-                        "top_p": 0.9,
-                        "top_k": 40
-                    }
-                },
-                timeout=60
-            )
-            response.raise_for_status()
-            text = response.json().get("response", "").strip()
+            text = generate_text(self.model, prompt, timeout=60, temperature=0.8)
             return strip_thinking(text)
         except Exception as e:
             logging.error(f"Error generating artist persona: {e}")

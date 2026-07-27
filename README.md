@@ -117,6 +117,11 @@ Once configured, verify connectivity by running:
 ```bash
 python app.py --test-connection
 ```
+
+Songbird supports both Ollama's `/api/generate` API and OpenAI-compatible
+servers exposing `/v1/chat/completions` (for example, LM Studio on port 1234).
+Set `LLM_API_MODE=openai` explicitly, or leave it as `auto` to detect the
+common `:1234` endpoint automatically.
 ## Quick Start
 
 1. **Configure Environment**: Set up your `.env` file with the required API keys and local service URLs.

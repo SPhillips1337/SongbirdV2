@@ -94,7 +94,9 @@ class PerplexityClient:
         }
         if self.ollama_base_url:
             logging.info(f"Local Perplexica configured for Ollama base URL: {self.ollama_base_url}")
-        # Local instances might be slower or on different network conditions
-        response = requests.post(self.local_url, json=data, headers=headers, timeout=120)
+        # Local instances might be slower or on different network conditions.
+        # Keep default short so a dead Perplexica host does not stall lyric generation.
+        timeout = float(os.getenv("PERPLEXICA_TIMEOUT", "20"))
+        response = requests.post(self.local_url, json=data, headers=headers, timeout=timeout)
         response.raise_for_status()
         return response.json().get("message", "")

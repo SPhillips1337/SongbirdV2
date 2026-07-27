@@ -1,14 +1,14 @@
-import requests
 import json
 import logging
-from config import MUSIC_PROMPTS, OLLAMA_BASE_URL, LYRIC_MODEL
+import os
+from config import MUSIC_PROMPTS, ALBUM_MODEL
 from tools.utils import strip_thinking
+from tools.llm import generate_text
 
 
 class MusicAgent:
     def __init__(self):
-        self.base_url = OLLAMA_BASE_URL
-        self.model = LYRIC_MODEL
+        self.model = os.getenv("MUSIC_MODEL", ALBUM_MODEL)
 
     def generate_direction(self, genre, user_direction, trending_data=None):
         system_prompt = MUSIC_PROMPTS.get(genre.upper(), MUSIC_PROMPTS.get("POP", "Default POP Prompt"))
@@ -33,27 +33,18 @@ class MusicAgent:
         )
 
         try:
-            response = requests.post(
-                f"{self.base_url}/api/generate",
-                json={
-                    "model": self.model,
-                    "prompt": f"{system_prompt}\n\n{user_prompt}",
-                    "stream": False,
-                    "format": "json",
-                    "options": {
-                        "temperature": 0.7,  # Slightly lower for structured JSON output
-                        "min_p": 0.05,
-                        "top_p": 0.9,
-                        "top_k": 40
-                    }
-                },
-                timeout=60
+            response_text = generate_text(
+                self.model,
+                f"{system_prompt}\n\n{user_prompt}",
+                timeout=60,
+                temperature=0.7,
+                json_mode=True,
             )
-            response.raise_for_status()
-            response_text = response.json().get("response", "").strip()
             
             # Strip thinking blocks before parsing JSON
             response_text = strip_thinking(response_text)
+            if response_text.startswith("```"):
+                response_text = response_text.strip("`").removeprefix("json").strip()
 
             # Parse JSON
             direction = json.loads(response_text)
@@ -63,7 +54,7 @@ class MusicAgent:
                 "bpm": int(direction.get("bpm", 120)),
                 "keyscale": direction.get("keyscale", "C major")
             }
-        except (json.JSONDecodeError, ValueError, requests.RequestException) as e:
+        except Exception as e:
             # Catch both parsing errors and request errors here
             logging.error(f"Error generating or parsing musical direction: {e}")
             if 'response_text' in locals():

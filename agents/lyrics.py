@@ -1,9 +1,9 @@
-import requests
 import json
 import logging
 import re
-from config import OLLAMA_BASE_URL, LYRIC_MODEL
+from config import LYRIC_MODEL
 from tools.utils import strip_thinking
+from tools.llm import generate_text
 from tools.rag import RAGTool
 from tools.perplexity import PerplexityClient
 from tools.audio_engineering import calculate_lyric_budget, DURATION_CATEGORIES
@@ -53,37 +53,165 @@ VOCAL_KEYWORDS_REGEX = re.compile(
     re.IGNORECASE
 )
 
+# Genre-specific motif hints so LightRAG hits thematic corpora (e.g. cyberpunk ingest)
+# rather than brittle "lyrics by <style artist>" lookups.
+GENRE_MOTIF_HINTS = {
+    "CYBERPUNK": (
+        "neon megacorp surveillance chrome rain rebellion autonomy glitch "
+        "industrial synthwave dystopian broadcast hacker city night"
+    ),
+    "INDUSTRIAL": "factory metal machinery oppression rage distortion body control",
+    "SYNTHWAVE": "night drive neon nostalgia VHS romance chrome skyline",
+    "DARKWAVE": "shadow longing cathedral night cold romance decay",
+    "METAL": "power conflict forge blood defiance thunder",
+    "POP": "desire nightlife heartbreak confidence glitter identity",
+    "HIPHOP": "city streets hustle status loyalty wordplay rhythm",
+    "RNB": "desire vulnerability late night touch confession groove",
+    "ROCK": "freedom road rebellion heart fire anthem",
+    "EDM": "release night pulse euphoria drop unity motion",
+}
+
+
 class LyricsAgent:
     def __init__(self):
-        self.base_url = OLLAMA_BASE_URL
         self.model = LYRIC_MODEL
         self.rag = RAGTool()
         self.perplexity = PerplexityClient()
 
+    def _genre_motif_hint(self, genre: str) -> str:
+        g = (genre or "").strip().upper()
+        if g in GENRE_MOTIF_HINTS:
+            return GENRE_MOTIF_HINTS[g]
+        # Soft match keys contained in genre string
+        for key, hint in GENRE_MOTIF_HINTS.items():
+            if key in g:
+                return hint
+        return f"{genre or 'music'} authentic concrete lyric imagery"
+
+    def build_web_research_query(self, state: dict) -> str:
+        """Theme/craft web query — not a request to retrieve copyrighted lyrics."""
+        genre = state.get("genre") or "music"
+        style = state.get("artist_style") or "contemporary artists"
+        direction = (state.get("user_direction") or "").strip()
+        title = state.get("song_title") or "Untitled"
+        trending = (state.get("trending_data") or "").strip()
+        motif = self._genre_motif_hint(genre)
+
+        parts = [
+            f"Songwriting themes, concrete imagery, verbs, slang, and emotional arcs for original {genre} lyrics.",
+            f"Style influence (craft only, do not quote copyrighted lyrics): {style}.",
+            f"Useful motif vocabulary: {motif}.",
+            f"Song title/concept: {title}.",
+        ]
+        if direction:
+            parts.append(f"User direction (high priority): {direction[:500]}")
+        if trending:
+            parts.insert(0, f"Trend context: {trending[:300]}.")
+        parts.append(
+            "Return bullet themes, image banks, and structural hooks a lyricist can use. "
+            "Do not paste full existing song lyrics."
+        )
+        return " ".join(parts)
+
+    def build_lightrag_queries(self, state: dict) -> list:
+        """
+        Prefer genre/theme corpus hits (cyberpunk ingest, etc.).
+        Style-artist name is a secondary craft query, never the only one.
+        """
+        genre = state.get("genre") or "music"
+        style = state.get("artist_style") or ""
+        direction = (state.get("user_direction") or "").strip()
+        title = state.get("song_title") or ""
+        artist = state.get("artist_name") or ""
+        motif = self._genre_motif_hint(genre)
+        concept = " ".join(x for x in [title, direction[:350]] if x).strip() or f"{genre} anthem"
+
+        queries = [
+            (
+                f"Retrieve lyric themes, concrete images, verbs, and motifs from the indexed "
+                f"{genre} corpus about: {motif}. "
+                f"Focus on material relevant to: {concept}. "
+                f"Summarize recurring imagery and phrasing patterns found in the documents. "
+                f"Do not write a new song."
+            ),
+            (
+                f"From CYBERPUNK LYRICS CORPUS documents, list dystopian industrial synthwave "
+                f"images and lines related to: {concept}. Quote short fragments only."
+            )
+            if "CYBER" in (genre or "").upper() or "cyberpunk" in concept.lower()
+            else (
+                f"From indexed lyric documents for {genre}, list themes and images related to: "
+                f"{concept}. Motifs: {motif}. Do not write a new song."
+            ),
+        ]
+        if style:
+            queries.append(
+                f"From the lyric corpus, what imagery, tone, and delivery patterns resemble {style}? "
+                f"Use for original {genre} songwriting craft notes only — no full song quotes."
+            )
+        if artist and artist.lower() not in (style or "").lower():
+            queries.append(
+                f"Corpus themes useful for a {genre} persona like {artist}: {concept[:200]}"
+            )
+        # Dedupe while preserving order
+        seen = set()
+        out = []
+        for q in queries:
+            qn = " ".join(q.split())
+            if qn and qn not in seen:
+                seen.add(qn)
+                out.append(qn)
+        return out
+
+    def _collect_lightrag_research(self, queries, max_each: int = 1400, max_total: int = 4000) -> str:
+        parts = []
+        for q in queries:
+            try:
+                # Prefer raw retrieved context so LightRAG does not refuse to "write a song".
+                raw = (self.rag.query_lightrag(q, only_need_context=True) or "").strip()
+                if not raw or len(raw) < 40:
+                    raw = (self.rag.query_lightrag(q, only_need_context=False) or "").strip()
+            except Exception as e:
+                logging.error(f"RAG query failed: {e}")
+                raw = ""
+            if not raw:
+                continue
+            # Skip pure "not enough information" dead-ends if we already have better hits
+            low = raw.lower()
+            weak = (
+                "do not have enough information" in low
+                or "not enough information" in low
+                or "cannot generate" in low
+            )
+            block = f"Query: {q}\n{raw[:max_each]}"
+            if weak and parts:
+                logging.info("Skipping weak LightRAG hit; stronger context already collected.")
+                continue
+            if block not in parts:
+                parts.append(block)
+        if not parts:
+            return "No useful LightRAG context (empty or insufficient corpus hits)."
+        joined = "\n\n---\n\n".join(parts)
+        return joined[:max_total]
+
     def write_lyrics_node(self, state):
         """Node: Research and Generate ACE-formatted lyrics."""
-        
-        # 1. Research (Combined)
-        trending_data = state.get("trending_data", "")
-        if trending_data:
-            query = f"Using this trend: {trending_data}, find songwriting themes for {state['genre']} in the style of {state['artist_style']}"
-        else:
-            query = f"Songwriting themes for {state['genre']} music in the style of {state['artist_style']}"
 
+        # 1. Research — theme/genre first; style as craft influence only
+        web_query = self.build_web_research_query(state)
         try:
-            search_results = self.perplexity.search(query)
+            search_results = self.perplexity.search(web_query)
         except Exception as e:
             logging.error(f"Perplexity search failed: {e}")
             search_results = "No search results."
 
-        try:
-            rag_results = self.rag.query_lightrag(f"Lyrics by {state['artist_style']}")
-        except Exception as e:
-            logging.error(f"RAG query failed: {e}")
-            rag_results = "No RAG results."
+        rag_queries = self.build_lightrag_queries(state)
+        logging.info(f"LightRAG research queries ({len(rag_queries)}): {rag_queries}")
+        rag_results = self._collect_lightrag_research(rag_queries)
 
         research_notes = f"Perplexity: {search_results}\n\nLightRAG: {rag_results}"
         state["research_notes"] = research_notes
+        state["research_queries"] = {"web": web_query, "lightrag": rag_queries}
 
         # 2. Determine Time Budget
         # Use target duration from state if available, otherwise 240s
@@ -133,7 +261,11 @@ Output Requirements:
 - BACKGROUND VOCALS: Use (parentheses) ONLY for sung background vocals or ad-libs (e.g., "(oh yeah)", "(I can't stop)").
 - INSTRUMENTAL DIRECTIONS: DO NOT include any instrumental or musical stage directions in parentheses (e.g., NO "(Guitar solo)", NO "(Epic drums)", NO "(Crushing riffs)"). Use [Instrumental Break] markers instead for non-vocal sections.
 - CONTENT: Make the lyrics raw, emotional, and authentic to the genre. Avoid cheesy rhymes.
+- POV (CRITICAL): Write entirely in first person from the singing artist's perspective. The vocalist is {state['artist_name']}: use "I", "me", "my", and "we"/"our" when appropriate. Do not narrate the vocalist from outside the song; do not refer to the vocalist by name or third-person pronouns in lyric lines unless deliberately naming them in a quoted slogan.
+- Every verse, chorus, bridge, and outro must sound like words {state['artist_name']} is personally singing to the audience or adversary.
 - FORMAT: STRICTLY lyrics only. No conversational text, no explanations.
+- PROMPT ISOLATION: Never repeat, summarize, or output any text from "User Direction", "Research Notes", "LightRAG", "Perplexity", "Direction Prompt", "Vibe", or the time-budget instructions. These are private context, not lyrics.
+- If the context contains a prompt or research paragraph, use it silently and begin immediately with an ACE-Step marker such as [Intro] or [Verse 1].
 
 Audio Engineering / Punctuation Rules (CRITICAL):
 - Enforce "Breathable" Syntax:
@@ -157,23 +289,7 @@ CRITICAL CONSTRAINTS:
 Begin creative workflow immediately."""
 
         try:
-            response = requests.post(
-                f"{self.base_url}/api/generate",
-                json={
-                    "model": self.model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.8,  # Creative but controlled
-                        "min_p": 0.05,       # Filter out low-probability garbage while keeping creativity
-                        "top_p": 0.9,
-                        "top_k": 40
-                    }
-                },
-                timeout=90
-            )
-            response.raise_for_status()
-            lyrics = response.json().get("response", "").strip()
+            lyrics = generate_text(self.model, prompt, timeout=90, temperature=0.8)
             state["lyrics"] = lyrics
 
             # Apply cleaning immediately
@@ -292,6 +408,54 @@ Begin creative workflow immediately."""
         
         return '\n'.join(filtered_lines)
 
+    def strip_prompt_contamination(self, lyrics):
+        """Remove copied workflow prompts/research from model output.
+
+        Smaller models sometimes echo the album director's direction or the
+        research envelope before producing lyrics. Those paragraphs are
+        instructions, not song content, and must never reach ACE-Step.
+        Resume at the next ACE-Step marker when one exists; otherwise discard
+        the contaminated tail.
+        """
+        lines = lyrics.split('\n')
+        cleaned = []
+        skipping = False
+        prompt_headers = (
+            'direction prompt',
+            'song direction',
+            'research notes:',
+            'lightrag:',
+            'perplexity:',
+            'knowledge graph data',
+            '```json',
+        )
+
+        for line in lines:
+            stripped = line.strip()
+            lower = stripped.lower()
+            is_marker = stripped.startswith('[') and stripped.endswith(']')
+            is_research_json = (
+                lower.startswith('{"entity"')
+                or lower.startswith('{"entities"')
+                or lower.startswith('{"file_path"')
+                or lower.startswith('```')
+            )
+
+            if is_research_json or any(lower.lstrip('# ').startswith(header) for header in prompt_headers):
+                logging.info(f"Filtering copied workflow prompt: {stripped[:120]}")
+                skipping = True
+                continue
+
+            if skipping:
+                if is_marker:
+                    skipping = False
+                    cleaned.append(line)
+                continue
+
+            cleaned.append(line)
+
+        return '\n'.join(cleaned)
+
     def strip_standalone_musical_instructions(self, lyrics):
         """
         Removes standalone lines that are musical instructions without parentheses/brackets.
@@ -366,6 +530,9 @@ Begin creative workflow immediately."""
         
         # Filter out meta-commentary
         lyrics = self.strip_meta_commentary(lyrics)
+
+        # Filter copied director prompts and research envelopes
+        lyrics = self.strip_prompt_contamination(lyrics)
         
         # Filter out standalone musical instructions
         lyrics = self.strip_standalone_musical_instructions(lyrics)
